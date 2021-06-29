@@ -554,7 +554,7 @@ func (e *PublicAPI) doCall(
 	if args.AccessList != nil {
 		accessList = args.AccessList
 	}
-
+	
 	if args.From == nil {
 		args.From = &common.Address{}
 	}
@@ -567,10 +567,15 @@ func (e *PublicAPI) doCall(
 
 	// Create new call message
 	msg := evmtypes.NewMsgEthereumTx(e.chainIDEpoch, seq, args.To, value, gas, gasPrice, data, accessList)
-	msg.From = args.From.String()
-	signer := ethtypes.LatestSignerForChainID(e.chainIDEpoch)
-	if err := msg.Sign(signer, e.clientCtx.Keyring); err != nil {
-		return nil, err
+
+	if args.From != nil {
+		msg.From = args.From.String()
+		signer := ethtypes.LatestSignerForChainID(e.chainIDEpoch)
+		if err := msg.Sign(signer, e.clientCtx.Keyring); err != nil {
+			return nil, err
+		}
+	} else {
+		msg.From = (&common.Address{}).String()
 	}
 
 	if err := msg.ValidateBasic(); err != nil {
