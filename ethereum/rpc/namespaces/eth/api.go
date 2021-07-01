@@ -554,19 +554,19 @@ func (e *PublicAPI) doCall(
 	if args.AccessList != nil {
 		accessList = args.AccessList
 	}
-	
-	if args.From == nil {
-		args.From = &common.Address{}
-	}
 
-	includePending := blockNr == rpctypes.EthPendingBlockNumber
-	seq, err := getAccountNonce(e.clientCtx, e.backend, *args.From, includePending, e.logger)
-	if err != nil {
-		return nil, err
+	var nonce uint64
+	if args.From != nil {
+		includePending := blockNr == rpctypes.EthPendingBlockNumber
+		seq, err := getAccountNonce(e.clientCtx, e.backend, *args.From, includePending, e.logger)
+		if err != nil {
+			return nil, err
+		}
+		nonce = seq
 	}
 
 	// Create new call message
-	msg := evmtypes.NewMsgEthereumTx(e.chainIDEpoch, seq, args.To, value, gas, gasPrice, data, accessList)
+	msg := evmtypes.NewMsgEthereumTx(e.chainIDEpoch, nonce, args.To, value, gas, gasPrice, data, accessList)
 
 	if args.From != nil {
 		msg.From = args.From.String()
