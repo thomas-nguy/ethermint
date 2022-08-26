@@ -51,7 +51,7 @@ func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, s
 		}
 
 		ethTx := msgEthTx.AsTransaction()
-		if !params.AllowUnprotectedTxs && !ethTx.Protected() {
+		if !ethTx.Protected() {
 			return ctx, sdkerrors.Wrapf(
 				sdkerrors.ErrNotSupported,
 				"rejected unprotected Ethereum txs. Please EIP155 sign your transaction to protect it against replay-attacks")
