@@ -81,6 +81,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 * (rpc) [#562](https://github.com/crypto-org-chain/ethermint/pull/562) Fix nil pointer panic with legacy transaction format.
 * (evm) [#567](https://github.com/crypto-org-chain/ethermint/pull/567) Fix nonce management in batch transaction.
 * (rpc) [#577](https://github.com/crypto-org-chain/ethermint/pull/577) Fix eth_getLogs miss logs with batch transactions.
+* (rpc) [#574](https://github.com/crypto-org-chain/ethermint/pull/574) Fix incorrect spendable balance when debug trace tx.
 
 ### Improvements
 
@@ -108,6 +109,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 * [#549](https://github.com/crypto-org-chain/ethermint/pull/549) Support build without cgo.
 * [#551](https://github.com/crypto-org-chain/ethermint/pull/551) Start event stream on demand.
 * [#555](https://github.com/crypto-org-chain/ethermint/pull/555) Update cometbft to 0.38.14 and rocksdb to 9.7.4.
+* [#576](https://github.com/crypto-org-chain/ethermint/pull/576) Add config `json-rpc.restrict-user-input` to restrict
 
 ## v0.21.x-cronos
 
