@@ -133,13 +133,16 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (*
 		return nil, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
 	}
 
+	// Ethereum block size is ~36000000
+	MaxGasCap := uint64(100000000)
+
 	// Set sender address or use zero address if none specified.
 	addr := args.GetFrom()
 
 	// Set default gas & gas price if none were set
 	gas := globalGasCap
 	if gas == 0 {
-		gas = uint64(math.MaxUint64 / 2)
+		gas = MaxGasCap
 	}
 	if args.Gas != nil {
 		gas = uint64(*args.Gas)
@@ -147,6 +150,7 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (*
 	if globalGasCap != 0 && globalGasCap < gas {
 		gas = globalGasCap
 	}
+
 	var (
 		gasPrice  *big.Int
 		gasFeeCap *big.Int
@@ -195,6 +199,11 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (*
 	nonce := uint64(0)
 	if args.Nonce != nil {
 		nonce = uint64(*args.Nonce)
+	}
+
+	// Limit gas cap to avoid DOS during simulation
+	if gas > MaxGasCap {
+		gas = MaxGasCap
 	}
 
 	msg := &core.Message{
