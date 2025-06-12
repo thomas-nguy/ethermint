@@ -9,7 +9,7 @@ require (
 	cosmossdk.io/core v0.11.1
 	cosmossdk.io/errors v1.0.1
 	cosmossdk.io/log v1.4.1
-	cosmossdk.io/math v1.3.0
+	cosmossdk.io/math v1.4.0
 	cosmossdk.io/store v1.1.1
 	cosmossdk.io/tools/confix v0.1.2
 	cosmossdk.io/x/evidence v0.1.1
@@ -18,7 +18,7 @@ require (
 	cosmossdk.io/x/upgrade v0.1.4
 	github.com/btcsuite/btcd v0.24.2
 	github.com/btcsuite/btcd/btcutil v1.1.6
-	github.com/cometbft/cometbft v0.38.13-0.20240920204745-fdf90d16f608
+	github.com/cometbft/cometbft v0.38.15
 	github.com/cosmos/cosmos-db v1.0.3-0.20240408151834-e75f6e4b28d8
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5
 	github.com/cosmos/cosmos-sdk v0.50.9
