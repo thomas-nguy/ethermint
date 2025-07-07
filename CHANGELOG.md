@@ -39,7 +39,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ### Features
 
-* (rpc) [#657](https://github.com/crypto-org-chain/ethermint/pull/657) Sanity checks for TraceTx and TraceCall.
+* (rpc) [#657](https://github.com/crypto-org-chain/ethermint/pull/659) Sanity checks for TraceTx and TraceCall.
 * (rpc) [#638](https://github.com/crypto-org-chain/ethermint/pull/638) Add support for eth_getBlockReceipts.
 * (evm) [#414](https://github.com/crypto-org-chain/ethermint/pull/414) Integrate go-block-stm for parallel tx execution.
 * (block-stm) [#498](https://github.com/crypto-org-chain/ethermint/pull/498) Enable incarnation cache for block-stm executor.
@@ -111,7 +111,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 * [#549](https://github.com/crypto-org-chain/ethermint/pull/549) Support build without cgo.
 * [#551](https://github.com/crypto-org-chain/ethermint/pull/551) Start event stream on demand.
 * [#555](https://github.com/crypto-org-chain/ethermint/pull/555) Update cometbft to 0.38.14 and rocksdb to 9.7.4.
+* [#565](https://github.com/crypto-org-chain/ethermint/pull/565) Add back CacheWrapWithTrace api.
+* [#563](https://github.com/crypto-org-chain/ethermint/pull/563) Bump ibc-go to v9.0.2.
 * [#576](https://github.com/crypto-org-chain/ethermint/pull/576) Add config `json-rpc.restrict-user-input` to restrict
+  user input when serving json-rpc in public.
 
 ## v0.21.x-cronos
 
