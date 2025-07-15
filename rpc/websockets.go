@@ -477,7 +477,6 @@ func try(fn func(), l log.Logger, desc string) {
 			return
 		}
 	}()
-	q
 	fn()
 }
 
