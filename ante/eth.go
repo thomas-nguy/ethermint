@@ -292,7 +292,8 @@ func CheckAndSetEthSenderNonce(
 		}
 		nonce := acc.GetSequence()
 
-		if !unsafeUnOrderedTx {
+		// Allow unordered tx for check tx to enable tx replacement
+		if !unsafeUnOrderedTx && !ctx.IsCheckTx() {
 			// we merged the nonce verification to nonce increment, so when tx includes multiple messages
 			// with same sender, they'll be accepted.
 			if tx.Nonce() != nonce {
