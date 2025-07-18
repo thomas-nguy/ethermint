@@ -57,8 +57,8 @@ type HandlerOptions struct {
 	ExtraDecorators   []sdk.AnteDecorator
 	PendingTxListener PendingTxListener
 
-	// see #494, just for benchmark, don't turn on on production
-	UnsafeUnorderedTx bool
+	// Enable it to use PriorityNonceMempool
+	UnorderedTx bool
 }
 
 func (options HandlerOptions) validate() error {
@@ -149,7 +149,7 @@ func newEthAnteHandler(options HandlerOptions) sdk.AnteHandler {
 			return ctx, err
 		}
 
-		if err := evmante.CheckAndSetEthSenderNonce(ctx, tx, options.AccountKeeper, options.UnsafeUnorderedTx, accountGetter); err != nil {
+		if err := evmante.CheckAndSetEthSenderNonce(ctx, tx, options.AccountKeeper, options.UnorderedTx, accountGetter); err != nil {
 			return ctx, err
 		}
 
