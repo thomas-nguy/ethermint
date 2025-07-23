@@ -271,7 +271,7 @@ func canTransfer(ctx sdk.Context, evmKeeper interfaces.EVMKeeper, denom string, 
 // contract creation, the nonce will be incremented during the transaction execution and not within
 // this AnteHandler decorator.
 func CheckAndSetEthSenderNonce(
-	ctx sdk.Context, tx sdk.Tx, ak evmtypes.AccountKeeper, unOrderedTx bool, accountGetter AccountGetter,
+	ctx sdk.Context, tx sdk.Tx, ak evmtypes.AccountKeeper, accountGetter AccountGetter,
 ) error {
 	for _, msg := range tx.GetMsgs() {
 		msgEthTx, ok := msg.(*evmtypes.MsgEthereumTx)
@@ -292,23 +292,28 @@ func CheckAndSetEthSenderNonce(
 		}
 		nonce := acc.GetSequence()
 
-		// Allow unordered tx for check tx to enable tx replacement
-		if !unOrderedTx && !ctx.IsCheckTx() {
-			// we merged the nonce verification to nonce increment, so when tx includes multiple messages
-			// with same sender, they'll be accepted.
+		if ctx.IsCheckTx() {
+			// Forbid nonce that is lower than current nonce
+			if tx.Nonce() < nonce {
+				return errorsmod.Wrapf(
+					errortypes.ErrInvalidSequence,
+					"invalid nonce; got %d, expected %d", tx.Nonce(), nonce,
+				)
+			}
+		} else {
+			// Check nonce and increment it
 			if tx.Nonce() != nonce {
 				return errorsmod.Wrapf(
 					errortypes.ErrInvalidSequence,
 					"invalid nonce; got %d, expected %d", tx.Nonce(), nonce,
 				)
 			}
-		}
+			if err := acc.SetSequence(nonce + 1); err != nil {
+				return errorsmod.Wrapf(err, "failed to set sequence to %d", acc.GetSequence()+1)
+			}
 
-		if err := acc.SetSequence(nonce + 1); err != nil {
-			return errorsmod.Wrapf(err, "failed to set sequence to %d", acc.GetSequence()+1)
+			ak.SetAccount(ctx, acc)
 		}
-
-		ak.SetAccount(ctx, acc)
 	}
 
 	return nil

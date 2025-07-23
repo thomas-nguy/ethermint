@@ -56,9 +56,6 @@ type HandlerOptions struct {
 	DisabledAuthzMsgs []string
 	ExtraDecorators   []sdk.AnteDecorator
 	PendingTxListener PendingTxListener
-
-	// Enable it to use PriorityNonceMempool
-	UnorderedTx bool
 }
 
 func (options HandlerOptions) validate() error {
@@ -149,7 +146,7 @@ func newEthAnteHandler(options HandlerOptions) sdk.AnteHandler {
 			return ctx, err
 		}
 
-		if err := evmante.CheckAndSetEthSenderNonce(ctx, tx, options.AccountKeeper, options.UnorderedTx, accountGetter); err != nil {
+		if err := evmante.CheckAndSetEthSenderNonce(ctx, tx, options.AccountKeeper, accountGetter); err != nil {
 			return ctx, err
 		}
 
