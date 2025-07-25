@@ -271,7 +271,7 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	// Enforce the gas limit gap
+	// Enforce the gas limit cap
 	if k.queryMaxGasLimit > 0 {
 		if msg.GasLimit > k.queryMaxGasLimit {
 			return nil, errorsmod.Wrap(types.ErrInvalidGasLimit, "the gas limit exceed the maximum allowed")
@@ -527,7 +527,7 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 					continue
 				}
 
-				// Enforce the gas limit gap
+				// Enforce the gas limit cap
 				if k.queryMaxGasLimit > 0 {
 					if msg.GasLimit > k.queryMaxGasLimit {
 						return nil, errorsmod.Wrap(types.ErrInvalidGasLimit, "the gas limit exceed the maximum allowed")
@@ -771,7 +771,7 @@ func (k *Keeper) prepareTrace(
 	cfg.Tracer = tracer
 	cfg.DebugTrace = true
 
-	// Enforce the gas limit gap
+	// Enforce the gas limit cap
 	if k.queryMaxGasLimit > 0 {
 		if msg.GasLimit > k.queryMaxGasLimit {
 			return nil, 0, status.Error(codes.InvalidArgument, "the gas limit exceed the maximum allowed")
