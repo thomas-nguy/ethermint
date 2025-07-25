@@ -17,7 +17,6 @@ package keeper
 
 import (
 	"context"
-	errorsmod "cosmossdk.io/errors"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -266,16 +265,17 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	nonce := k.GetNonce(ctx, args.GetFrom())
 	args.Nonce = (*hexutil.Uint64)(&nonce)
 
-	msg, err := args.ToMessage(req.GasCap, cfg.BaseFee)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+	// Enforce the gas limit cap
+	gasCap := req.GasCap
+	if k.queryMaxGasLimit > 0 {
+		if gasCap > k.queryMaxGasLimit {
+			gasCap = k.queryMaxGasLimit
+		}
 	}
 
-	// Enforce the gas limit cap
-	if k.queryMaxGasLimit > 0 {
-		if msg.GasLimit > k.queryMaxGasLimit {
-			return nil, errorsmod.Wrap(types.ErrInvalidGasLimit, "the gas limit exceed the maximum allowed")
-		}
+	msg, err := args.ToMessage(gasCap, cfg.BaseFee)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	// pass false to not commit StateDB
@@ -302,6 +302,10 @@ func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (*type
 
 	if req.GasCap < ethparams.TxGas {
 		return nil, status.Error(codes.InvalidArgument, "gas cap cannot be lower than 21,000")
+	}
+
+	if req.GasCap > k.queryMaxGasLimit {
+		return nil, status.Errorf(codes.InvalidArgument, "gas cap cannot be higher than %d", k.queryMaxGasLimit)
 	}
 
 	var args types.TransactionArgs
@@ -526,13 +530,6 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 				if err != nil {
 					continue
 				}
-
-				// Enforce the gas limit cap
-				if k.queryMaxGasLimit > 0 {
-					if msg.GasLimit > k.queryMaxGasLimit {
-						return nil, errorsmod.Wrap(types.ErrInvalidGasLimit, "the gas limit exceed the maximum allowed")
-					}
-				}
 				rsp, err := k.ApplyMessageWithConfig(ctx, msg, cfg, true)
 				if err != nil {
 					continue
@@ -651,7 +648,14 @@ func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (
 			nonce := k.GetNonce(ctx, args.GetFrom())
 			args.Nonce = (*hexutil.Uint64)(&nonce)
 
-			msg, err := args.ToMessage(req.GasCap, cfg.BaseFee)
+			// Enforce the gas limit cap
+			gasCap := req.GasCap
+			if k.queryMaxGasLimit > 0 {
+				if gasCap > k.queryMaxGasLimit {
+					gasCap = k.queryMaxGasLimit
+				}
+			}
+			msg, err := args.ToMessage(gasCap, cfg.BaseFee)
 			if err != nil {
 				return nil, err
 			}
@@ -770,13 +774,6 @@ func (k *Keeper) prepareTrace(
 
 	cfg.Tracer = tracer
 	cfg.DebugTrace = true
-
-	// Enforce the gas limit cap
-	if k.queryMaxGasLimit > 0 {
-		if msg.GasLimit > k.queryMaxGasLimit {
-			return nil, 0, status.Error(codes.InvalidArgument, "the gas limit exceed the maximum allowed")
-		}
-	}
 	res, err := k.ApplyMessageWithConfig(ctx, msg, cfg, commitMessage)
 	if err != nil {
 		return nil, 0, status.Error(codes.Internal, err.Error())
