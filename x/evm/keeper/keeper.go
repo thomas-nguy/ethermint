@@ -37,6 +37,9 @@ import (
 // CustomContractFn defines a custom precompiled contract generator with ctx, rules and returns a precompiled contract.
 type CustomContractFn func(sdk.Context, params.Rules) vm.PrecompiledContract
 
+// GasNoLimit is the value for keeper.queryMaxGasLimit in case there is no limit
+const GasNoLimit = 0
+
 // Keeper grants access to the EVM module state and implements the go-ethereum StateDB interface.
 type Keeper struct {
 	// Protobuf codec

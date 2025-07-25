@@ -267,10 +267,8 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 
 	// Enforce the gas limit cap
 	gasCap := req.GasCap
-	if k.queryMaxGasLimit > 0 {
-		if gasCap > k.queryMaxGasLimit {
-			gasCap = k.queryMaxGasLimit
-		}
+	if k.queryMaxGasLimit != GasNoLimit && gasCap > k.queryMaxGasLimit {
+		gasCap = k.queryMaxGasLimit
 	}
 
 	msg, err := args.ToMessage(gasCap, cfg.BaseFee)
@@ -304,7 +302,7 @@ func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (*type
 		return nil, status.Error(codes.InvalidArgument, "gas cap cannot be lower than 21,000")
 	}
 
-	if k.queryMaxGasLimit > 0 && req.GasCap > k.queryMaxGasLimit {
+	if k.queryMaxGasLimit != GasNoLimit && req.GasCap > k.queryMaxGasLimit {
 		return nil, status.Errorf(codes.InvalidArgument, "gas cap cannot be higher than %d", k.queryMaxGasLimit)
 	}
 
@@ -650,10 +648,8 @@ func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (
 
 			// Enforce the gas limit cap
 			gasCap := req.GasCap
-			if k.queryMaxGasLimit > 0 {
-				if gasCap > k.queryMaxGasLimit {
-					gasCap = k.queryMaxGasLimit
-				}
+			if k.queryMaxGasLimit != GasNoLimit && gasCap > k.queryMaxGasLimit {
+				gasCap = k.queryMaxGasLimit
 			}
 			msg, err := args.ToMessage(gasCap, cfg.BaseFee)
 			if err != nil {
