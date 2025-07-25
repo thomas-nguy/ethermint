@@ -91,7 +91,6 @@ func NewKeeper(
 	ss paramstypes.Subspace,
 	customContractFns []CustomContractFn,
 	queryMaxGasLimit uint64,
-
 ) *Keeper {
 	// ensure evm module account is set
 	if addr := ak.GetModuleAddress(types.ModuleName); addr == nil {
