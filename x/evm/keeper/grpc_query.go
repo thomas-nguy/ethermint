@@ -304,7 +304,7 @@ func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (*type
 		return nil, status.Error(codes.InvalidArgument, "gas cap cannot be lower than 21,000")
 	}
 
-	if req.GasCap > k.queryMaxGasLimit {
+	if k.queryMaxGasLimit > 0 && req.GasCap > k.queryMaxGasLimit {
 		return nil, status.Errorf(codes.InvalidArgument, "gas cap cannot be higher than %d", k.queryMaxGasLimit)
 	}
 
