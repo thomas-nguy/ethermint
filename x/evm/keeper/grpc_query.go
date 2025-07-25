@@ -17,6 +17,7 @@ package keeper
 
 import (
 	"context"
+	errorsmod "cosmossdk.io/errors"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -270,6 +271,13 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
+	// Enforce the gas limit gap
+	if k.queryMaxGasLimit > 0 {
+		if msg.GasLimit > k.queryMaxGasLimit {
+			return nil, errorsmod.Wrap(types.ErrInvalidGasLimit, "the gas limit exceed the maximum allowed")
+		}
+	}
+
 	// pass false to not commit StateDB
 	res, err := k.ApplyMessageWithConfig(ctx, msg, cfg, false)
 	if err != nil {
@@ -518,6 +526,13 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 				if err != nil {
 					continue
 				}
+
+				// Enforce the gas limit gap
+				if k.queryMaxGasLimit > 0 {
+					if msg.GasLimit > k.queryMaxGasLimit {
+						return nil, errorsmod.Wrap(types.ErrInvalidGasLimit, "the gas limit exceed the maximum allowed")
+					}
+				}
 				rsp, err := k.ApplyMessageWithConfig(ctx, msg, cfg, true)
 				if err != nil {
 					continue
@@ -755,6 +770,13 @@ func (k *Keeper) prepareTrace(
 
 	cfg.Tracer = tracer
 	cfg.DebugTrace = true
+
+	// Enforce the gas limit gap
+	if k.queryMaxGasLimit > 0 {
+		if msg.GasLimit > k.queryMaxGasLimit {
+			return nil, 0, status.Error(codes.InvalidArgument, "the gas limit exceed the maximum allowed")
+		}
+	}
 	res, err := k.ApplyMessageWithConfig(ctx, msg, cfg, commitMessage)
 	if err != nil {
 		return nil, 0, status.Error(codes.Internal, err.Error())

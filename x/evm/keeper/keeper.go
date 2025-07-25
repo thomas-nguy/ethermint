@@ -73,6 +73,9 @@ type Keeper struct {
 	// Legacy subspace
 	ss                paramstypes.Subspace
 	customContractFns []CustomContractFn
+
+	// queryMaxGasLimit max amount of gas allowed during a single tx execution, 0 means no limit
+	queryMaxGasLimit uint64
 }
 
 // NewKeeper generates new evm module keeper
@@ -87,6 +90,8 @@ func NewKeeper(
 	tracer string,
 	ss paramstypes.Subspace,
 	customContractFns []CustomContractFn,
+	queryMaxGasLimit uint64,
+
 ) *Keeper {
 	// ensure evm module account is set
 	if addr := ak.GetModuleAddress(types.ModuleName); addr == nil {
@@ -111,6 +116,7 @@ func NewKeeper(
 		tracer:            tracer,
 		ss:                ss,
 		customContractFns: customContractFns,
+		queryMaxGasLimit:  queryMaxGasLimit,
 	}
 }
 
