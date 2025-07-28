@@ -267,10 +267,7 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 
 	// Enforce the gas limit cap
 	gasCap := uint64(0)
-	if args.Gas != nil {
-		gasCap = uint64(*args.Gas)
-	}
-	if k.queryMaxGasLimit != GasNoLimit && gasCap > k.queryMaxGasLimit {
+	if k.queryMaxGasLimit != GasNoLimit {
 		gasCap = k.queryMaxGasLimit
 	}
 	if req.GasCap != 0 && gasCap > req.GasCap {
@@ -310,27 +307,28 @@ func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (*type
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	if req.GasCap < ethparams.TxGas || (args.Gas != nil && uint64(*args.Gas) < ethparams.TxGas) {
+	// Enforce the gas limit cap
+	gasCap := uint64(0)
+	if k.queryMaxGasLimit != GasNoLimit {
+		gasCap = k.queryMaxGasLimit
+	}
+	if req.GasCap != 0 && gasCap > req.GasCap {
+		gasCap = req.GasCap
+	}
+
+	if gasCap < ethparams.TxGas {
 		return nil, status.Error(codes.InvalidArgument, "gas cap cannot be lower than 21,000")
 	}
 
 	// Binary search the gas requirement, as it may be higher than the amount used
 	var (
-		lo     = ethparams.TxGas - 1
-		hi     uint64
-		gasCap uint64
+		lo = ethparams.TxGas - 1
+		hi uint64
 	)
 
 	// Determine the highest gas limit can be used during the estimation.
-
 	if args.Gas != nil && uint64(*args.Gas) >= ethparams.TxGas {
 		hi = uint64(*args.Gas)
-		if k.queryMaxGasLimit != GasNoLimit && hi > k.queryMaxGasLimit {
-			hi = k.queryMaxGasLimit
-		}
-		if req.GasCap != 0 && hi > req.GasCap {
-			hi = req.GasCap
-		}
 	} else {
 		// Query block gas limit
 		params := ctx.ConsensusParams()
@@ -347,7 +345,7 @@ func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (*type
 	// TODO: Recap the highest gas limit with account's available balance.
 
 	// Recap the highest gas allowance with specified gascap.
-	if req.GasCap != 0 && hi > req.GasCap {
+	if hi > req.GasCap {
 		hi = req.GasCap
 	}
 	gasCap = hi
@@ -657,10 +655,7 @@ func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (
 
 			// Enforce the gas limit cap
 			gasCap := uint64(0)
-			if args.Gas != nil {
-				gasCap = uint64(*args.Gas)
-			}
-			if k.queryMaxGasLimit != GasNoLimit && gasCap > k.queryMaxGasLimit {
+			if k.queryMaxGasLimit != GasNoLimit {
 				gasCap = k.queryMaxGasLimit
 			}
 			if req.GasCap != 0 && gasCap > req.GasCap {
