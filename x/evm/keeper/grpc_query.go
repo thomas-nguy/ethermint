@@ -331,7 +331,6 @@ func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (*type
 		if req.GasCap != 0 && hi > req.GasCap {
 			hi = req.GasCap
 		}
-
 	} else {
 		// Query block gas limit
 		params := ctx.ConsensusParams()
