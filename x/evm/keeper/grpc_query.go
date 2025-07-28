@@ -266,9 +266,12 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	args.Nonce = (*hexutil.Uint64)(&nonce)
 
 	// Enforce the gas limit cap
-	gasCap := req.GasCap
+	gasCap := uint64(*args.Gas)
 	if k.queryMaxGasLimit != GasNoLimit && gasCap > k.queryMaxGasLimit {
 		gasCap = k.queryMaxGasLimit
+	}
+	if req.GasCap != 0 && req.GasCap < gasCap {
+		gasCap = req.GasCap
 	}
 
 	msg, err := args.ToMessage(gasCap, cfg.BaseFee)
@@ -298,16 +301,17 @@ func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (*type
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	if req.GasCap < ethparams.TxGas {
-		return nil, status.Error(codes.InvalidArgument, "gas cap cannot be lower than 21,000")
-	}
+	var args types.TransactionArgs
+	err = json.Unmarshal(req.Args, &args)
 
-	if k.queryMaxGasLimit != GasNoLimit && req.GasCap > k.queryMaxGasLimit {
+	if (k.queryMaxGasLimit != GasNoLimit && uint64(*args.Gas) > k.queryMaxGasLimit) || (req.GasCap != 0 && uint64(*args.Gas) > req.GasCap) {
 		return nil, status.Errorf(codes.InvalidArgument, "gas cap cannot be higher than %d", k.queryMaxGasLimit)
 	}
 
-	var args types.TransactionArgs
-	err = json.Unmarshal(req.Args, &args)
+	if uint64(*args.Gas) < ethparams.TxGas {
+		return nil, status.Error(codes.InvalidArgument, "gas cap cannot be lower than 21,000")
+	}
+
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -647,10 +651,14 @@ func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (
 			args.Nonce = (*hexutil.Uint64)(&nonce)
 
 			// Enforce the gas limit cap
-			gasCap := req.GasCap
+			gasCap := uint64(*args.Gas)
 			if k.queryMaxGasLimit != GasNoLimit && gasCap > k.queryMaxGasLimit {
 				gasCap = k.queryMaxGasLimit
 			}
+			if req.GasCap != 0 && req.GasCap < gasCap {
+				gasCap = req.GasCap
+			}
+
 			msg, err := args.ToMessage(gasCap, cfg.BaseFee)
 			if err != nil {
 				return nil, err
