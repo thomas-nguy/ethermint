@@ -266,12 +266,13 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	args.Nonce = (*hexutil.Uint64)(&nonce)
 
 	// Enforce the gas limit cap
-	gasCap := uint64(0)
+	gasCap := req.GasCap
 	if k.queryMaxGasLimit != GasNoLimit {
-		gasCap = k.queryMaxGasLimit
-	}
-	if req.GasCap != 0 && gasCap > req.GasCap {
-		gasCap = req.GasCap
+		if gasCap == 0 {
+			gasCap = k.queryMaxGasLimit
+		} else if k.queryMaxGasLimit < gasCap {
+			gasCap = k.queryMaxGasLimit
+		}
 	}
 
 	msg, err := args.ToMessage(gasCap, cfg.BaseFee)
@@ -312,12 +313,13 @@ func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (*type
 	}
 
 	// Enforce the gas limit cap
-	gasCap := uint64(0)
+	gasCap := req.GasCap
 	if k.queryMaxGasLimit != GasNoLimit {
-		gasCap = k.queryMaxGasLimit
-	}
-	if req.GasCap != 0 && gasCap > req.GasCap {
-		gasCap = req.GasCap
+		if gasCap == 0 {
+			gasCap = k.queryMaxGasLimit
+		} else if k.queryMaxGasLimit < gasCap {
+			gasCap = k.queryMaxGasLimit
+		}
 	}
 
 	// Binary search the gas requirement, as it may be higher than the amount used
@@ -655,12 +657,13 @@ func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (
 			args.Nonce = (*hexutil.Uint64)(&nonce)
 
 			// Enforce the gas limit cap
-			gasCap := uint64(0)
+			gasCap := req.GasCap
 			if k.queryMaxGasLimit != GasNoLimit {
-				gasCap = k.queryMaxGasLimit
-			}
-			if req.GasCap != 0 && gasCap > req.GasCap {
-				gasCap = req.GasCap
+				if gasCap == 0 {
+					gasCap = k.queryMaxGasLimit
+				} else if k.queryMaxGasLimit < gasCap {
+					gasCap = k.queryMaxGasLimit
+				}
 			}
 
 			msg, err := args.ToMessage(gasCap, cfg.BaseFee)
