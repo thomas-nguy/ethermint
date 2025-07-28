@@ -301,6 +301,10 @@ func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (*type
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
+	if req.GasCap < ethparams.TxGas {
+		return nil, status.Error(codes.InvalidArgument, "gas cap cannot be lower than 21,000")
+	}
+
 	var args types.TransactionArgs
 	err = json.Unmarshal(req.Args, &args)
 	if err != nil {
@@ -314,10 +318,6 @@ func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (*type
 	}
 	if req.GasCap != 0 && gasCap > req.GasCap {
 		gasCap = req.GasCap
-	}
-
-	if gasCap < ethparams.TxGas {
-		return nil, status.Error(codes.InvalidArgument, "gas cap cannot be lower than 21,000")
 	}
 
 	// Binary search the gas requirement, as it may be higher than the amount used
