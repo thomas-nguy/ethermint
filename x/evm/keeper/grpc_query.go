@@ -345,8 +345,10 @@ func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (*type
 	// TODO: Recap the highest gas limit with account's available balance.
 
 	// Recap the highest gas allowance with specified gascap.
-	if hi > gasCap {
+	if gasCap != 0 && hi > gasCap {
 		hi = gasCap
+	} else {
+		gasCap = hi
 	}
 	cfg, err := k.EVMConfig(ctx, chainID, common.Hash{})
 	if err != nil {
