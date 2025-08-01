@@ -17,9 +17,10 @@ package ante
 
 import (
 	"fmt"
-	"github.com/evmos/ethermint/ante/cache"
 	"math"
 	"math/big"
+
+	"github.com/evmos/ethermint/ante/cache"
 
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
@@ -319,7 +320,6 @@ func CheckAndSetEthSenderNonce(
 					cache.Delete(acc, nonce)
 				}
 			}
-
 		}
 
 		// increase sequence of sender

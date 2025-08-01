@@ -1,8 +1,9 @@
 package cache
 
 import (
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"sync"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // TxNonce structure for a pair sender and nonce
