@@ -26,6 +26,7 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	evmante "github.com/evmos/ethermint/ante"
+	"github.com/evmos/ethermint/ante/cache"
 	"github.com/evmos/ethermint/ante/cosmos"
 	"github.com/evmos/ethermint/ante/evm"
 	"github.com/evmos/ethermint/ante/interfaces"
@@ -149,7 +150,8 @@ func newEthAnteHandler(options HandlerOptions) sdk.AnteHandler {
 			return ctx, err
 		}
 
-		if err := evmante.CheckAndSetEthSenderNonce(ctx, tx, options.AccountKeeper, options.UnsafeUnorderedTx, accountGetter); err != nil {
+		anteCache := cache.NewAnteCache()
+		if err := evmante.CheckAndSetEthSenderNonce(ctx, tx, options.AccountKeeper, options.UnsafeUnorderedTx, accountGetter, anteCache); err != nil {
 			return ctx, err
 		}
 

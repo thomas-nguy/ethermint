@@ -17,6 +17,7 @@ package ante
 
 import (
 	"fmt"
+	"github.com/evmos/ethermint/ante/cache"
 	"math"
 	"math/big"
 
@@ -271,7 +272,7 @@ func canTransfer(ctx sdk.Context, evmKeeper interfaces.EVMKeeper, denom string, 
 // contract creation, the nonce will be incremented during the transaction execution and not within
 // this AnteHandler decorator.
 func CheckAndSetEthSenderNonce(
-	ctx sdk.Context, tx sdk.Tx, ak evmtypes.AccountKeeper, unsafeUnOrderedTx bool, accountGetter AccountGetter,
+	ctx sdk.Context, tx sdk.Tx, ak evmtypes.AccountKeeper, unsafeUnOrderedTx bool, accountGetter AccountGetter, cache *cache.AnteCache,
 ) error {
 	for _, msg := range tx.GetMsgs() {
 		msgEthTx, ok := msg.(*evmtypes.MsgEthereumTx)
@@ -281,7 +282,6 @@ func CheckAndSetEthSenderNonce(
 
 		tx := msgEthTx.AsTransaction()
 
-		// increase sequence of sender
 		from := msgEthTx.GetFrom()
 		acc := accountGetter(from)
 		if acc == nil {
@@ -292,17 +292,37 @@ func CheckAndSetEthSenderNonce(
 		}
 		nonce := acc.GetSequence()
 
+		// if flag is set, we bypass nonce all check verification
 		if !unsafeUnOrderedTx {
-			// we merged the nonce verification to nonce increment, so when tx includes multiple messages
-			// with same sender, they'll be accepted.
-			if tx.Nonce() != nonce {
-				return errorsmod.Wrapf(
-					errortypes.ErrInvalidSequence,
-					"invalid nonce; got %d, expected %d", tx.Nonce(), nonce,
-				)
+			// skip verification if the transaction nonce exists in the cache
+			if (ctx.IsCheckTx() || ctx.IsReCheckTx()) && !cache.Exists(acc, nonce) {
+				if tx.Nonce() != nonce {
+					return errorsmod.Wrapf(
+						errortypes.ErrInvalidSequence,
+						"invalid nonce; got %d, expected %d", tx.Nonce(), nonce,
+					)
+				}
+				// set in the cache only for check tx
+				if ctx.IsCheckTx() {
+					cache.Set(acc, nonce)
+				}
+			} else {
+				// Deliver tx
+				if tx.Nonce() != nonce {
+					return errorsmod.Wrapf(
+						errortypes.ErrInvalidSequence,
+						"invalid nonce; got %d, expected %d", tx.Nonce(), nonce,
+					)
+				}
+
+				if cache.Exists(acc, nonce) {
+					cache.Delete(acc, nonce)
+				}
 			}
+
 		}
 
+		// increase sequence of sender
 		if err := acc.SetSequence(nonce + 1); err != nil {
 			return errorsmod.Wrapf(err, "failed to set sequence to %d", acc.GetSequence()+1)
 		}
