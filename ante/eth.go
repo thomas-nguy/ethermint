@@ -291,41 +291,36 @@ func CheckAndSetEthSenderNonce(
 				"account %s is nil", common.BytesToAddress(from.Bytes()),
 			)
 		}
-		accNonce := acc.GetSequence()
+		expectedNonce := acc.GetSequence()
 		txNonce := tx.Nonce()
 		fromStr := from.String()
 
 		// if flag is set, we bypass nonce all check verification
 		if !unsafeUnOrderedTx {
-			// skip verification if the transaction nonce exists in the cache
-			if (ctx.IsCheckTx() || ctx.IsReCheckTx()) && !cache.Exists(fromStr, txNonce) {
-				if txNonce != accNonce {
-					return errorsmod.Wrapf(
-						errortypes.ErrInvalidSequence,
-						"invalid nonce; got %d, expected %d", txNonce, accNonce,
-					)
-				}
-				// set in the cache only for check tx
-				if ctx.IsCheckTx() {
-					cache.Set(fromStr, txNonce)
-				}
-			} else {
-				// Deliver tx
-				if txNonce != accNonce {
-					return errorsmod.Wrapf(
-						errortypes.ErrInvalidSequence,
-						"invalid nonce; got %d, expected %d", txNonce, accNonce,
-					)
-				}
+			// if the transaction nonce exists in the cache during a check or recheck tx we skip verification, and we don't set the sequence
+			if (ctx.IsCheckTx() || ctx.IsReCheckTx()) && cache.Exists(fromStr, txNonce) {
+				continue
+			}
 
-				if cache.Exists(fromStr, txNonce) {
-					cache.Delete(fromStr, txNonce)
-				}
+			// co verification
+			if txNonce != expectedNonce {
+				return errorsmod.Wrapf(
+					errortypes.ErrInvalidSequence,
+					"invalid nonce; got %d, expected %d", txNonce, expectedNonce,
+				)
+			}
+
+			if ctx.IsCheckTx() || ctx.IsReCheckTx() {
+				// set in the cache for check tx or recheck tx
+				cache.Set(fromStr, txNonce)
+			} else {
+				// delete from the cache for deliver tx
+				cache.Set(fromStr, txNonce)
 			}
 		}
 
 		// increase sequence of sender
-		if err := acc.SetSequence(txNonce + 1); err != nil {
+		if err := acc.SetSequence(expectedNonce + 1); err != nil {
 			return errorsmod.Wrapf(err, "failed to set sequence to %d", acc.GetSequence()+1)
 		}
 
