@@ -152,7 +152,8 @@ func newEthAnteHandler(options HandlerOptions) sdk.AnteHandler {
 			return ctx, err
 		}
 
-		if err := evmante.CheckAndSetEthSenderNonce(ctx, tx, options.AccountKeeper, options.UnsafeUnorderedTx, accountGetter, options.AnteCache); err != nil {
+		if err := evmante.CheckAndSetEthSenderNonce(
+			ctx, tx, options.AccountKeeper, options.UnsafeUnorderedTx, accountGetter, options.AnteCache); err != nil {
 			return ctx, err
 		}
 

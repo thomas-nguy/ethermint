@@ -18,7 +18,6 @@ package evmd
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/evmos/ethermint/ante/cache"
 	"io"
 	"io/fs"
 	"net/http"
@@ -26,6 +25,8 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+
+	"github.com/evmos/ethermint/ante/cache"
 
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"

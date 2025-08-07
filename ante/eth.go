@@ -297,8 +297,8 @@ func CheckAndSetEthSenderNonce(
 
 		// if flag is set, we bypass nonce all check verification
 		if !unsafeUnOrderedTx {
-			// if the transaction nonce exists in the cache during a check or recheck tx we skip verification, and we don't set the sequence
-			if (ctx.IsCheckTx() || ctx.IsReCheckTx()) && cache.Exists(fromStr, txNonce) {
+			// if the transaction nonce exists in the cache during a check tx we skip verification, and we don't set the sequence
+			if ctx.IsCheckTx() && !ctx.IsReCheckTx() && cache.Exists(fromStr, txNonce) {
 				continue
 			}
 
@@ -306,18 +306,15 @@ func CheckAndSetEthSenderNonce(
 			if txNonce != expectedNonce {
 				return errorsmod.Wrapf(
 					errortypes.ErrInvalidSequence,
-					"invalid nonce; got %d, expected %d, cachesize %d", txNonce, expectedNonce, cache.Size(),
+					"invalid nonce; got %d, expected %d", txNonce, expectedNonce,
 				)
 			}
 
-			if ctx.IsCheckTx() || ctx.IsReCheckTx() {
-				// set in the cache for check tx or recheck tx
+			if ctx.IsCheckTx() {
 				cache.Set(fromStr, txNonce)
-			} else {
-				// delete from the cache for deliver tx
-				if cache.Exists(fromStr, txNonce) {
-					cache.Delete(fromStr, txNonce)
-				}
+			} else if cache.Exists(fromStr, txNonce) {
+				// delete in case of deliver tx
+				cache.Delete(fromStr, txNonce)
 			}
 		}
 
