@@ -39,7 +39,6 @@ func (c *AnteCache) Delete(address string, nonce uint64) {
 	defer c.mu.Unlock()
 	key := TxNonce{address, nonce}
 	delete(c.cache, key)
-	c.size--
 }
 
 // Exists check if the TxNonce existz
