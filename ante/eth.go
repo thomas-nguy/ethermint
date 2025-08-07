@@ -298,15 +298,18 @@ func CheckAndSetEthSenderNonce(
 		if !unsafeUnOrderedTx {
 			// skip verification if the transaction nonce exists in the cache
 			if (ctx.IsCheckTx() || ctx.IsReCheckTx()) && !cache.Exists(addrStr, nonce) {
+				// set in the cache only for check tx
+				if ctx.IsCheckTx() {
+					cache.Set(addrStr, nonce)
+				}
 				if tx.Nonce() != nonce {
+					if cache.Exists(addrStr, nonce) {
+						cache.Delete(addrStr, nonce)
+					}
 					return errorsmod.Wrapf(
 						errortypes.ErrInvalidSequence,
 						"invalid nonce; got %d, expected %d", tx.Nonce(), nonce,
 					)
-				}
-				// set in the cache only for check tx
-				if ctx.IsCheckTx() || ctx.IsReCheckTx() {
-					cache.Set(addrStr, nonce)
 				}
 			} else {
 				// Deliver tx
