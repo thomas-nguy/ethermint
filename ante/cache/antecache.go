@@ -2,13 +2,11 @@ package cache
 
 import (
 	"sync"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // TxNonce structure for a pair sender and nonce
 type TxNonce struct {
-	Address sdk.AccountI
+	Address string
 	Nonce   uint64
 }
 
@@ -26,7 +24,7 @@ func NewAnteCache() *AnteCache {
 }
 
 // Set the TxNonce
-func (c *AnteCache) Set(address sdk.AccountI, nonce uint64) {
+func (c *AnteCache) Set(address string, nonce uint64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	key := TxNonce{address, nonce}
@@ -34,7 +32,7 @@ func (c *AnteCache) Set(address sdk.AccountI, nonce uint64) {
 }
 
 // Delete the TxNonce
-func (c *AnteCache) Delete(address sdk.AccountI, nonce uint64) {
+func (c *AnteCache) Delete(address string, nonce uint64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	key := TxNonce{address, nonce}
@@ -42,7 +40,7 @@ func (c *AnteCache) Delete(address sdk.AccountI, nonce uint64) {
 }
 
 // Exists check if the TxNonce existz
-func (c *AnteCache) Exists(address sdk.AccountI, nonce uint64) bool {
+func (c *AnteCache) Exists(address string, nonce uint64) bool {
 	key := TxNonce{address, nonce}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
