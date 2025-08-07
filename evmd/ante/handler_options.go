@@ -60,6 +60,8 @@ type HandlerOptions struct {
 
 	// see #494, just for benchmark, don't turn on on production
 	UnsafeUnorderedTx bool
+
+	AnteCache *cache.AnteCache
 }
 
 func (options HandlerOptions) validate() error {
@@ -150,8 +152,7 @@ func newEthAnteHandler(options HandlerOptions) sdk.AnteHandler {
 			return ctx, err
 		}
 
-		anteCache := cache.NewAnteCache()
-		if err := evmante.CheckAndSetEthSenderNonce(ctx, tx, options.AccountKeeper, options.UnsafeUnorderedTx, accountGetter, anteCache); err != nil {
+		if err := evmante.CheckAndSetEthSenderNonce(ctx, tx, options.AccountKeeper, options.UnsafeUnorderedTx, accountGetter, options.AnteCache); err != nil {
 			return ctx, err
 		}
 

@@ -18,6 +18,7 @@ package evmd
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/evmos/ethermint/ante/cache"
 	"io"
 	"io/fs"
 	"net/http"
@@ -814,6 +815,7 @@ func (app *EthermintApp) setAnteHandler(txConfig client.TxConfig, maxGasWanted u
 			sdk.MsgTypeURL(&vestingtypes.MsgCreatePeriodicVestingAccount{}),
 		},
 		PendingTxListener: app.onPendingTx,
+		AnteCache:         cache.NewAnteCache(),
 	})
 	if err != nil {
 		panic(err)

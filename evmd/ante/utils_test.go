@@ -2,6 +2,7 @@ package ante_test
 
 import (
 	"context"
+	"github.com/evmos/ethermint/ante/cache"
 	"math"
 	"math/big"
 	"time"
@@ -144,6 +145,7 @@ func (suite *AnteTestSuite) SetupTest() {
 			sdk.MsgTypeURL(&evmtypes.MsgEthereumTx{}),
 			sdk.MsgTypeURL(&vestingtypes.MsgCreateVestingAccount{}),
 		},
+		AnteCache: cache.NewAnteCache(),
 	})
 	suite.Require().NoError(err)
 
