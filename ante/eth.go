@@ -302,11 +302,11 @@ func CheckAndSetEthSenderNonce(
 				continue
 			}
 
-			// co verification
+			// do verification
 			if txNonce != expectedNonce {
 				return errorsmod.Wrapf(
 					errortypes.ErrInvalidSequence,
-					"invalid nonce; got %d, expected %d", txNonce, expectedNonce,
+					"invalid nonce; got %d, expected %d, cachesize %d", txNonce, expectedNonce, cache.Size(),
 				)
 			}
 
@@ -315,7 +315,9 @@ func CheckAndSetEthSenderNonce(
 				cache.Set(fromStr, txNonce)
 			} else {
 				// delete from the cache for deliver tx
-				cache.Set(fromStr, txNonce)
+				if cache.Exists(fromStr, txNonce) {
+					cache.Delete(fromStr, txNonce)
+				}
 			}
 		}
 

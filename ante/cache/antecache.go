@@ -15,6 +15,7 @@ type TxNonce struct {
 type AnteCache struct {
 	mu    sync.RWMutex
 	cache map[TxNonce]bool
+	size  int
 }
 
 func NewAnteCache() *AnteCache {
@@ -29,6 +30,7 @@ func (c *AnteCache) Set(address string, nonce uint64) {
 	defer c.mu.Unlock()
 	key := TxNonce{address, nonce}
 	c.cache[key] = true
+	c.size++
 }
 
 // Delete the TxNonce
@@ -37,6 +39,7 @@ func (c *AnteCache) Delete(address string, nonce uint64) {
 	defer c.mu.Unlock()
 	key := TxNonce{address, nonce}
 	delete(c.cache, key)
+	c.size--
 }
 
 // Exists check if the TxNonce existz
@@ -46,4 +49,8 @@ func (c *AnteCache) Exists(address string, nonce uint64) bool {
 	defer c.mu.RUnlock()
 	_, ok := c.cache[key]
 	return ok
+}
+
+func (c *AnteCache) Size() int {
+	return c.size
 }
