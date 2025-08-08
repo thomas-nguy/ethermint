@@ -32,9 +32,12 @@ func NewAnteCache(mempoolMaxTxs int) *AnteCache {
 
 // Set the TxNonce
 func (c *AnteCache) Set(address string, nonce uint64) {
+	if c.maxTx < 0 {
+		return
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if (c.maxTx > 0 && len(c.cache) >= c.maxTx) || c.maxTx < 0 {
+	if c.maxTx > 0 && len(c.cache) >= c.maxTx {
 		return
 	}
 	key := TxNonce{address, nonce}
@@ -43,22 +46,22 @@ func (c *AnteCache) Set(address string, nonce uint64) {
 
 // Delete the TxNonce
 func (c *AnteCache) Delete(address string, nonce uint64) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	if c.maxTx < 0 {
 		return
 	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	key := TxNonce{address, nonce}
 	delete(c.cache, key)
 }
 
 // Exists check if the TxNonce exists
 func (c *AnteCache) Exists(address string, nonce uint64) bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	if c.maxTx < 0 {
 		return false
 	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	key := TxNonce{address, nonce}
 	_, ok := c.cache[key]
 	return ok
