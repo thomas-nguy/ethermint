@@ -34,7 +34,7 @@ func NewAnteCache(mempoolMaxTxs int) *AnteCache {
 func (c *AnteCache) Set(address string, nonce uint64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if (c.maxTx > 0 && c.Size() >= c.maxTx) || c.maxTx < 0 {
+	if (c.maxTx > 0 && len(c.cache) >= c.maxTx) || c.maxTx < 0 {
 		return
 	}
 	key := TxNonce{address, nonce}
