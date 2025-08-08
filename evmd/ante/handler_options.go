@@ -80,6 +80,9 @@ func (options HandlerOptions) validate() error {
 	if options.EvmKeeper == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "evm keeper is required for AnteHandler")
 	}
+	if options.AnteCache == nil {
+		return errorsmod.Wrap(errortypes.ErrLogic, "ante cache is required for AnteHandler")
+	}
 	return nil
 }
 

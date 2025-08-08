@@ -745,7 +745,7 @@ func NewEthermintApp(
 	app.SetPreBlocker(app.PreBlocker)
 	app.SetBeginBlocker(app.BeginBlocker)
 	app.SetEndBlocker(app.EndBlocker)
-	app.setAnteHandler(txConfig, cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted)))
+	app.setAnteHandler(txConfig, cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted)), cast.ToInt(appOpts.Get(server.FlagMempoolMaxTxs)))
 	// In v0.46, the SDK introduces _postHandlers_. PostHandlers are like
 	// antehandlers, but are run _after_ the `runMsgs` execution. They are also
 	// defined as a chain, and have the same signature as antehandlers.
@@ -796,7 +796,7 @@ func NewEthermintApp(
 }
 
 // use Ethermint's custom AnteHandler
-func (app *EthermintApp) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
+func (app *EthermintApp) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64, mempoolMaxTxs int) {
 	anteHandler, err := ante.NewAnteHandler(ante.HandlerOptions{
 		AccountKeeper:          app.AccountKeeper,
 		BankKeeper:             app.BankKeeper,
@@ -816,7 +816,7 @@ func (app *EthermintApp) setAnteHandler(txConfig client.TxConfig, maxGasWanted u
 			sdk.MsgTypeURL(&vestingtypes.MsgCreatePeriodicVestingAccount{}),
 		},
 		PendingTxListener: app.onPendingTx,
-		AnteCache:         cache.NewAnteCache(),
+		AnteCache:         cache.NewAnteCache(mempoolMaxTxs),
 	})
 	if err != nil {
 		panic(err)
