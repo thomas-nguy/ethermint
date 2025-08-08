@@ -83,7 +83,7 @@ func NewSimApp(logger log.Logger, db dbm.DB, baseAppOptions ...func(*baseapp.Bas
 		EvmKeeper:       app.EvmKeeper,
 		FeeMarketKeeper: app.FeeMarketKeeper,
 		MaxTxGasWanted:  0,
-		AnteCache:       cache.NewAnteCache(),
+		AnteCache:       cache.NewAnteCache(0),
 	})
 	if err != nil {
 		return nil, err

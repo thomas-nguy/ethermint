@@ -145,7 +145,7 @@ func (suite *AnteTestSuite) SetupTest() {
 			sdk.MsgTypeURL(&evmtypes.MsgEthereumTx{}),
 			sdk.MsgTypeURL(&vestingtypes.MsgCreateVestingAccount{}),
 		},
-		AnteCache: cache.NewAnteCache(),
+		AnteCache: cache.NewAnteCache(0),
 	})
 	suite.Require().NoError(err)
 
