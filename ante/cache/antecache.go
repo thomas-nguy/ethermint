@@ -19,7 +19,7 @@ type AnteCache struct {
 	cache map[TxNonce]bool
 	// - if maxTx == 0, there is no cap on the number of transactions in the cache
 	// - if maxTx > 0, the cache will cap the number of transactions it stores,
-	// - if maxTx < 0, `Set` is a no-op.
+	// - if maxTx < 0, the cache is a no-op cache.
 	maxTx int
 }
 
@@ -45,22 +45,27 @@ func (c *AnteCache) Set(address string, nonce uint64) {
 func (c *AnteCache) Delete(address string, nonce uint64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.maxTx < 0 {
+		return
+	}
 	key := TxNonce{address, nonce}
 	delete(c.cache, key)
 }
 
 // Exists check if the TxNonce exists
 func (c *AnteCache) Exists(address string, nonce uint64) bool {
-	key := TxNonce{address, nonce}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+	if c.maxTx < 0 {
+		return false
+	}
+	key := TxNonce{address, nonce}
 	_, ok := c.cache[key]
 	return ok
 }
 
 func (c *AnteCache) Size() int {
 	c.mu.RLock()
-	size := len(c.cache)
-	c.mu.RUnlock()
-	return size
+	defer c.mu.RUnlock()
+	return len(c.cache)
 }
