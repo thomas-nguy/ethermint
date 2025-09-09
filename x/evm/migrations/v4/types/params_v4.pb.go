@@ -6,10 +6,12 @@ package types
 import (
 	fmt "fmt"
 	_ "github.com/cosmos/gogoproto/gogoproto"
+	v0types "github.com/evmos/ethermint/x/evm/migrations/v0/types"
 	proto "github.com/cosmos/gogoproto/proto"
 	io "io"
 	math "math"
 	math_bits "math/bits"
+
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -35,7 +37,7 @@ type V4Params struct {
 	// extra_eips defines the additional EIPs for the vm.Config
 	ExtraEIPs ExtraEIPs `protobuf:"bytes,4,opt,name=extra_eips,json=extraEips,proto3" json:"extra_eips"`
 	// chain_config defines the EVM chain configuration parameters
-	ChainConfig V0ChainConfig `protobuf:"bytes,5,opt,name=chain_config,json=chainConfig,proto3" json:"chain_config"`
+	ChainConfig v0types.V0ChainConfig `protobuf:"bytes,5,opt,name=chain_config,json=chainConfig,proto3" json:"chain_config"`
 	// allow_unprotected_txs defines if replay-protected (i.e non EIP155
 	// signed) transactions can be executed on the state machine.
 	AllowUnprotectedTxs bool `protobuf:"varint,6,opt,name=allow_unprotected_txs,json=allowUnprotectedTxs,proto3" json:"allow_unprotected_txs,omitempty"`
@@ -102,11 +104,11 @@ func (m *V4Params) GetExtraEIPs() ExtraEIPs {
 	return ExtraEIPs{}
 }
 
-func (m *V4Params) GetChainConfig() V0ChainConfig {
+func (m *V4Params) GetChainConfig() v0types.V0ChainConfig {
 	if m != nil {
 		return m.ChainConfig
 	}
-	return V0ChainConfig{}
+	return v0types.V0ChainConfig{}
 }
 
 func (m *V4Params) GetAllowUnprotectedTxs() bool {
