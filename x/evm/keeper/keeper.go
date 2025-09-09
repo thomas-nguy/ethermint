@@ -17,9 +17,10 @@ package keeper
 
 import (
 	"bytes"
+	"math/big"
+
 	"cosmossdk.io/store/prefix"
 	"github.com/ethereum/go-ethereum/crypto"
-	"math/big"
 
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/log"

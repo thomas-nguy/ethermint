@@ -2,6 +2,7 @@ package evmd
 
 import (
 	"encoding/json"
+
 	evmtypes "github.com/evmos/ethermint/x/evm/types"
 )
 
