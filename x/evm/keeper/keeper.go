@@ -360,12 +360,17 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 
 		existingCodeHash := k.GetCodeHash(ctx, address)
 		if !types.IsEmptyCodeHash(existingCodeHash.Bytes()) && !bytes.Equal(existingCodeHash.Bytes(), codeHash) {
-			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already has a code hash with a different code hash", preinstall.Address)
+			k.Logger(ctx).Error("preinstall already has a code hash with a different code hash",
+				"preinstall address", preinstall.Address,
+				"existing code hash", existingCodeHash,
+				"new code hash", codeHash)
+			continue
 		}
 
 		// check that the account is not already set
 		if acc := k.accountKeeper.GetAccount(ctx, accAddress); acc != nil {
-			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already has an account in account keeper", preinstall.Address)
+			k.Logger(ctx).Error("preinstall %s already has an account in account keeper")
+			continue
 		}
 		// create account with the account keeper
 		account := k.accountKeeper.NewAccountWithAddress(ctx, accAddress)
