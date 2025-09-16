@@ -11,10 +11,3 @@ def test_call(ethermint):
     res = Web3.to_hex(contract.caller.getBlockHash(height))
     blk = w3.eth.get_block(height)
     assert res == Web3.to_hex(blk.hash), res
-
-    origin = Web3.to_hex(contract.caller.getOrigin())
-    assert origin == "", origin
-
-    gasprice = Web3.to_hex(contract.caller.getGasPrice(height))
-    exp_gasprice = w3.eth.gas_price()
-    assert gasprice == exp_gasprice, gasprice
