@@ -230,7 +230,6 @@ message MsgUpdateParamsResponse {}
 
 // MsgRegisterPreinstalls defines a Msg for creating preinstalls in evm state.
 message MsgRegisterPreinstalls {
-  option (amino.name) = "cosmos/evm/x/vm/MsgRegisterPreinstalls";
   option (cosmos.msg.v1.signer) = "authority";
 
   // authority is the address of the governance account.
