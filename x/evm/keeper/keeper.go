@@ -375,8 +375,6 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 		// create account with the account keeper
 		account := k.accountKeeper.NewAccountWithAddress(ctx, accAddress)
 		k.accountKeeper.SetAccount(ctx, account)
-		k.Logger(ctx).Error(address.Hex())
-		k.Logger(ctx).Error(preinstall.Code)
 		k.SetCodeHash(ctx, address.Bytes(), codeHash)
 
 		k.SetCode(ctx, codeHash, common.FromHex(preinstall.Code))
@@ -402,7 +400,7 @@ func (k *Keeper) SetCodeHash(ctx sdk.Context, addrBytes, hashBytes []byte) {
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixCodeHash)
 	store.Set(addrBytes, hashBytes)
 
-	k.Logger(ctx).Debug(
+	k.Logger(ctx).Error(
 		"code hash updated",
 		"address", common.BytesToAddress(addrBytes).Hex(),
 		"code hash", common.BytesToHash(hashBytes).Hex(),

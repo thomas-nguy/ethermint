@@ -180,7 +180,7 @@ func (k *Keeper) SetCode(ctx sdk.Context, codeHash, code []byte) {
 	} else {
 		store.Set(codeHash, code)
 	}
-	k.Logger(ctx).Debug("code",
+	k.Logger(ctx).Error("code",
 		"action", action,
 		"code-hash", codeHash,
 	)
