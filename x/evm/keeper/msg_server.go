@@ -163,6 +163,7 @@ func (k *Keeper) RegisterPreinstalls(goCtx context.Context, req *types.MsgRegist
 	}
 
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	k.Logger(ctx).Error("AddPreinstalls")
 	if err := k.AddPreinstalls(ctx, req.Preinstalls); err != nil {
 		return nil, err
 	}
