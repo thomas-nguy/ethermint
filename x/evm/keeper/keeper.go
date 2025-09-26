@@ -392,15 +392,6 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 		k.SetCode(ctx, codeHash, common.FromHex(preinstall.Code))
 
 		// We are not setting any storage for preinstalls, so we skip that step.
-
-		code, err := k.Code(ctx, &types.QueryCodeRequest{Address: preinstall.Address})
-		if code != nil {
-			k.Logger(ctx).Error("code",
-				"address", preinstall.Address,
-				"error", err == nil,
-				"code", common.BytesToHash(code.Code),
-			)
-		}
 	}
 	return nil
 }
@@ -420,10 +411,4 @@ func (k *Keeper) GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash {
 func (k *Keeper) SetCodeHash(ctx sdk.Context, addrBytes, hashBytes []byte) {
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixCodeHash)
 	store.Set(addrBytes, hashBytes)
-
-	k.Logger(ctx).Error(
-		"code hash updated",
-		"address", common.BytesToAddress(addrBytes).Hex(),
-		"code hash", common.BytesToHash(hashBytes).Hex(),
-	)
 }
