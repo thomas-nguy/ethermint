@@ -17,6 +17,7 @@ package keeper
 
 import (
 	"bytes"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -368,12 +369,12 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already has an account in account keeper", preinstall.Address)
 		}
 		// create account with the account keeper
-		account := k.accountKeeper.NewAccountWithAddress(ctx, accAddress)
-		err := k.SetCodeHash(acct, codeHash)
-		if err != nil {
-			return err
+		bacc := authtypes.NewBaseAccountWithAddress(accAddress)
+		ethacc := &ethermint.EthAccount{
+			BaseAccount: bacc,
+			CodeHash:    common.BytesToHash(codeHash).Hex(),
 		}
-		k.accountKeeper.SetAccount(ctx, account)
+		k.accountKeeper.SetAccount(ctx, ethacc)
 		k.SetCode(ctx, codeHash, common.FromHex(preinstall.Code))
 
 		// We are not setting any storage for preinstalls, so we skip that step.
@@ -391,14 +392,4 @@ func (k *Keeper) GetCodeHash(acct sdk.AccountI) common.Hash {
 		return hash
 	}
 	return common.BytesToHash(types.EmptyCodeHash)
-}
-
-// SetCodeHash sets the code hash for the given contract address.
-func (k *Keeper) SetCodeHash(acct sdk.AccountI, hashBytes []byte) error {
-	if ethAcct, ok := acct.(ethermint.EthAccountI); ok {
-		if err := ethAcct.SetCodeHash(common.BytesToHash(hashBytes)); err != nil {
-			return err
-		}
-	}
-	return nil
 }
