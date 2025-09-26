@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"math/big"
 
-	"cosmossdk.io/store/prefix"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	errorsmod "cosmossdk.io/errors"
@@ -242,7 +241,7 @@ func (k *Keeper) GetAccountWithoutBalance(ctx sdk.Context, addr common.Address) 
 		return nil
 	}
 
-	codeHashBz := k.GetCodeHash(ctx, addr).Bytes()
+	codeHashBz := k.GetCodeHash(ctx, addr.Bytes()).Bytes()
 
 	return &statedb.Account{
 		Nonce:    acct.GetSequence(),
@@ -375,7 +374,7 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s has empty code hash", preinstall.Address)
 		}
 
-		existingCodeHash := k.GetCodeHash(ctx, address)
+		existingCodeHash := k.GetCodeHash(ctx, address.Bytes())
 		if !types.IsEmptyCodeHash(existingCodeHash.Bytes()) && !bytes.Equal(existingCodeHash.Bytes(), codeHash) {
 			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already has a code hash with a different code hash", preinstall.Address)
 		}
@@ -397,18 +396,21 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 }
 
 // GetCodeHash loads the code hash from the database for the given contract address.
-func (k *Keeper) GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash {
-	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixCodeHash)
-	bz := store.Get(addr.Bytes())
-	if len(bz) == 0 {
-		return common.BytesToHash(types.EmptyCodeHash)
+func (k *Keeper) GetCodeHash(ctx sdk.Context, addrBytes []byte) common.Hash {
+	cosmosAddr := sdk.AccAddress(addrBytes)
+	acct := k.accountKeeper.GetAccount(ctx, cosmosAddr)
+	if ethAcct, ok := acct.(ethermint.EthAccountI); ok {
+		return ethAcct.GetCodeHash()
 	}
-
-	return common.BytesToHash(bz)
+	return common.Hash{}
 }
 
 // SetCodeHash sets the code hash for the given contract address.
 func (k *Keeper) SetCodeHash(ctx sdk.Context, addrBytes, hashBytes []byte) {
-	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixCodeHash)
-	store.Set(addrBytes, hashBytes)
+	cosmosAddr := sdk.AccAddress(addrBytes)
+	acct := k.accountKeeper.GetAccount(ctx, cosmosAddr)
+	if ethAcct, ok := acct.(ethermint.EthAccountI); ok {
+		if err := ethAcct.SetCodeHash(common.BytesToHash(hashBytes)); err != nil {
+		}
+	}
 }
