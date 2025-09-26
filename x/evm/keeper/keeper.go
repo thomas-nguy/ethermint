@@ -233,6 +233,23 @@ func (k *Keeper) GetAccount(ctx sdk.Context, addr common.Address) *statedb.Accou
 	return statedb.NewAccountFromSdkAccount(acct)
 }
 
+// GetAccountWithoutBalance load nonce and codehash without balance,
+// more efficient in cases where balance is not needed.
+func (k *Keeper) GetAccountWithoutBalance(ctx sdk.Context, addr common.Address) *statedb.Account {
+	cosmosAddr := sdk.AccAddress(addr.Bytes())
+	acct := k.accountKeeper.GetAccount(ctx, cosmosAddr)
+	if acct == nil {
+		return nil
+	}
+
+	codeHashBz := k.GetCodeHash(ctx, addr).Bytes()
+
+	return &statedb.Account{
+		Nonce:    acct.GetSequence(),
+		CodeHash: codeHashBz,
+	}
+}
+
 // GetAccountOrEmpty returns empty account if not exist, returns error if it's not `EthAccount`
 func (k *Keeper) GetAccountOrEmpty(ctx sdk.Context, addr common.Address) statedb.Account {
 	acct := k.GetAccount(ctx, addr)
@@ -360,17 +377,12 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 
 		existingCodeHash := k.GetCodeHash(ctx, address)
 		if !types.IsEmptyCodeHash(existingCodeHash.Bytes()) && !bytes.Equal(existingCodeHash.Bytes(), codeHash) {
-			k.Logger(ctx).Error("preinstall already has a code hash with a different code hash",
-				"preinstall address", preinstall.Address,
-				"existing code hash", existingCodeHash,
-				"new code hash", codeHash)
-			continue
+			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already has a code hash with a different code hash", preinstall.Address)
 		}
 
 		// check that the account is not already set
 		if acc := k.accountKeeper.GetAccount(ctx, accAddress); acc != nil {
-			k.Logger(ctx).Error("preinstall %s already has an account in account keeper")
-			continue
+			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already has an account in account keeper", preinstall.Address)
 		}
 		// create account with the account keeper
 		account := k.accountKeeper.NewAccountWithAddress(ctx, accAddress)
@@ -380,6 +392,15 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 		k.SetCode(ctx, codeHash, common.FromHex(preinstall.Code))
 
 		// We are not setting any storage for preinstalls, so we skip that step.
+
+		code, err := k.Code(ctx, &types.QueryCodeRequest{Address: preinstall.Address})
+		if code != nil {
+			k.Logger(ctx).Error("code",
+				"address", preinstall.Address,
+				"error", err == nil,
+				"code", common.BytesToHash(code.Code),
+			)
+		}
 	}
 	return nil
 }

@@ -207,10 +207,13 @@ func (k Keeper) Code(c context.Context, req *types.QueryCodeRequest) (*types.Que
 	ctx := sdk.UnwrapSDKContext(c)
 
 	address := common.HexToAddress(req.Address)
-	acct := k.GetAccount(ctx, address)
-
+	acct := k.GetAccountWithoutBalance(ctx, address)
+	k.Logger(ctx).Error("acc",
+		"acct", acct == nil,
+	)
 	var code []byte
 	if acct != nil && acct.IsContract() {
+		k.Logger(ctx).Error("try get code")
 		code = k.GetCode(ctx, common.BytesToHash(acct.CodeHash))
 	}
 
