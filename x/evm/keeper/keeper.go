@@ -232,23 +232,6 @@ func (k *Keeper) GetAccount(ctx sdk.Context, addr common.Address) *statedb.Accou
 	return statedb.NewAccountFromSdkAccount(acct)
 }
 
-// GetAccountWithoutBalance load nonce and codehash without balance,
-// more efficient in cases where balance is not needed.
-func (k *Keeper) GetAccountWithoutBalance(ctx sdk.Context, addr common.Address) *statedb.Account {
-	cosmosAddr := sdk.AccAddress(addr.Bytes())
-	acct := k.accountKeeper.GetAccount(ctx, cosmosAddr)
-	if acct == nil {
-		return nil
-	}
-
-	codeHashBz := k.GetCodeHash(ctx, addr.Bytes()).Bytes()
-
-	return &statedb.Account{
-		Nonce:    acct.GetSequence(),
-		CodeHash: codeHashBz,
-	}
-}
-
 // GetAccountOrEmpty returns empty account if not exist, returns error if it's not `EthAccount`
 func (k *Keeper) GetAccountOrEmpty(ctx sdk.Context, addr common.Address) statedb.Account {
 	acct := k.GetAccount(ctx, addr)
@@ -374,7 +357,8 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s has empty code hash", preinstall.Address)
 		}
 
-		existingCodeHash := k.GetCodeHash(ctx, address.Bytes())
+		acct := k.accountKeeper.GetAccount(ctx, accAddress)
+		existingCodeHash := k.GetCodeHash(acct)
 		if !types.IsEmptyCodeHash(existingCodeHash.Bytes()) && !bytes.Equal(existingCodeHash.Bytes(), codeHash) {
 			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already has a code hash with a different code hash", preinstall.Address)
 		}
@@ -386,8 +370,10 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 		// create account with the account keeper
 		account := k.accountKeeper.NewAccountWithAddress(ctx, accAddress)
 		k.accountKeeper.SetAccount(ctx, account)
-		k.SetCodeHash(ctx, address.Bytes(), codeHash)
-
+		err := k.SetCodeHash(acct, codeHash)
+		if err != nil {
+			return err
+		}
 		k.SetCode(ctx, codeHash, common.FromHex(preinstall.Code))
 
 		// We are not setting any storage for preinstalls, so we skip that step.
@@ -396,21 +382,23 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 }
 
 // GetCodeHash loads the code hash from the database for the given contract address.
-func (k *Keeper) GetCodeHash(ctx sdk.Context, addrBytes []byte) common.Hash {
-	cosmosAddr := sdk.AccAddress(addrBytes)
-	acct := k.accountKeeper.GetAccount(ctx, cosmosAddr)
+func (k *Keeper) GetCodeHash(acct sdk.AccountI) common.Hash {
 	if ethAcct, ok := acct.(ethermint.EthAccountI); ok {
-		return ethAcct.GetCodeHash()
+		hash := ethAcct.GetCodeHash()
+		if len(hash.Bytes()) == 0 {
+			return common.BytesToHash(types.EmptyCodeHash)
+		}
+		return hash
 	}
-	return common.Hash{}
+	return common.BytesToHash(types.EmptyCodeHash)
 }
 
 // SetCodeHash sets the code hash for the given contract address.
-func (k *Keeper) SetCodeHash(ctx sdk.Context, addrBytes, hashBytes []byte) {
-	cosmosAddr := sdk.AccAddress(addrBytes)
-	acct := k.accountKeeper.GetAccount(ctx, cosmosAddr)
+func (k *Keeper) SetCodeHash(acct sdk.AccountI, hashBytes []byte) error {
 	if ethAcct, ok := acct.(ethermint.EthAccountI); ok {
 		if err := ethAcct.SetCodeHash(common.BytesToHash(hashBytes)); err != nil {
+			return err
 		}
 	}
+	return nil
 }
