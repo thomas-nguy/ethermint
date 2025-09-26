@@ -369,11 +369,11 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 		}
 		// create account with the account keeper
 		account := k.accountKeeper.NewAccountWithAddress(ctx, accAddress)
-		k.accountKeeper.SetAccount(ctx, account)
 		err := k.SetCodeHash(acct, codeHash)
 		if err != nil {
 			return err
 		}
+		k.accountKeeper.SetAccount(ctx, account)
 		k.SetCode(ctx, codeHash, common.FromHex(preinstall.Code))
 
 		// We are not setting any storage for preinstalls, so we skip that step.
