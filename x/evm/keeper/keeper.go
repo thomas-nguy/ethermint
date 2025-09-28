@@ -17,7 +17,6 @@ package keeper
 
 import (
 	"bytes"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -353,14 +352,15 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s has no code", preinstall.Address)
 		}
 
-		codeHash := crypto.Keccak256Hash(common.FromHex(preinstall.Code)).Bytes()
-		if types.IsEmptyCodeHash(codeHash) {
+		codeHash := crypto.Keccak256Hash(common.FromHex(preinstall.Code))
+		codeHashBytes := codeHash.Bytes()
+		if types.IsEmptyCodeHash(codeHashBytes) {
 			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s has empty code hash", preinstall.Address)
 		}
 
 		acct := k.accountKeeper.GetAccount(ctx, accAddress)
 		existingCodeHash := k.GetCodeHash(acct)
-		if !types.IsEmptyCodeHash(existingCodeHash.Bytes()) && !bytes.Equal(existingCodeHash.Bytes(), codeHash) {
+		if !types.IsEmptyCodeHash(existingCodeHash.Bytes()) && !bytes.Equal(existingCodeHash.Bytes(), codeHashBytes) {
 			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already has a code hash with a different code hash", preinstall.Address)
 		}
 
@@ -369,13 +369,14 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already has an account in account keeper", preinstall.Address)
 		}
 		// create account with the account keeper
-		bacc := authtypes.NewBaseAccountWithAddress(accAddress)
-		ethacc := &ethermint.EthAccount{
-			BaseAccount: bacc,
-			CodeHash:    common.BytesToHash(codeHash).Hex(),
+		acct = k.accountKeeper.NewAccountWithAddress(ctx, accAddress)
+		if ethAcct, ok := acct.(ethermint.EthAccountI); ok {
+			if err := ethAcct.SetCodeHash(codeHash); err != nil {
+				return err
+			}
 		}
-		k.accountKeeper.SetAccount(ctx, ethacc)
-		k.SetCode(ctx, codeHash, common.FromHex(preinstall.Code))
+		k.accountKeeper.SetAccount(ctx, acct)
+		k.SetCode(ctx, codeHashBytes, common.FromHex(preinstall.Code))
 
 		// We are not setting any storage for preinstalls, so we skip that step.
 	}
