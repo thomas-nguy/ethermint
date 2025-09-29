@@ -46,6 +46,7 @@ var (
 	_ sdk.Tx     = &MsgEthereumTx{}
 	_ ante.GasTx = &MsgEthereumTx{}
 	_ sdk.Msg    = &MsgUpdateParams{}
+	_ sdk.Msg    = &MsgRegisterPreinstalls{}
 
 	_ codectypes.UnpackInterfacesMessage = MsgEthereumTx{}
 )

@@ -16,7 +16,6 @@
 package keeper
 
 import (
-	"bytes"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -359,16 +358,11 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 		}
 
 		acct := k.accountKeeper.GetAccount(ctx, accAddress)
-		existingCodeHash := k.GetCodeHash(acct)
-		if !types.IsEmptyCodeHash(existingCodeHash.Bytes()) && !bytes.Equal(existingCodeHash.Bytes(), codeHashBytes) {
-			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already has a code hash with a different code hash", preinstall.Address)
-		}
-
 		// check that the account is not already set
-		if acc := k.accountKeeper.GetAccount(ctx, accAddress); acc != nil {
+		if acct != nil {
 			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already has an account in account keeper", preinstall.Address)
 		}
-		// create account with the account keeper
+		// create account with the account keeper and set code hash
 		acct = k.accountKeeper.NewAccountWithAddress(ctx, accAddress)
 		if ethAcct, ok := acct.(ethermint.EthAccountI); ok {
 			if err := ethAcct.SetCodeHash(codeHash); err != nil {
