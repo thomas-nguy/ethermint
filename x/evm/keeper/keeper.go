@@ -351,6 +351,18 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s has no code", preinstall.Address)
 		}
 
+		// check that the address does not conflict with the precompiles
+		cfg, err := k.EVMBlockConfig(ctx, k.ChainID())
+		if err != nil {
+			return err
+		}
+		for _, fn := range k.customContractFns {
+			c := fn(ctx, cfg.Rules)
+			if address == c.Address() {
+				return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already exists as a precompile", preinstall.Address)
+			}
+		}
+
 		codeHash := crypto.Keccak256Hash(common.FromHex(preinstall.Code))
 		codeHashBytes := codeHash.Bytes()
 		if types.IsEmptyCodeHash(codeHashBytes) {
