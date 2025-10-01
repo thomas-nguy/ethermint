@@ -404,3 +404,18 @@ func (m *MsgUpdateParams) ValidateBasic() error {
 
 	return m.Params.Validate()
 }
+
+// ValidateBasic does a sanity check for MsgRegisterPreinstalls
+func (m *MsgRegisterPreinstalls) ValidateBasic() error {
+	if _, err := sdk.AccAddressFromBech32(m.Authority); err != nil {
+		return errorsmod.Wrap(err, "invalid authority address")
+	}
+
+	for _, p := range m.Preinstalls {
+		err := p.Validate()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
