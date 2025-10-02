@@ -348,7 +348,8 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 		accAddress := sdk.AccAddress(address.Bytes())
 
 		if len(preinstall.Code) == 0 {
-			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s has no code", preinstall.Address)
+			return errorsmod.Wrapf(types.ErrInvalidPreinstall,
+				"preinstall %s, address %s has no code", preinstall.Name, preinstall.Address)
 		}
 
 		// check that the address does not conflict with the precompiles
@@ -359,20 +360,25 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 		for _, fn := range k.customContractFns {
 			c := fn(ctx, cfg.Rules)
 			if address == c.Address() {
-				return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already exists as a precompile", preinstall.Address)
+				return errorsmod.Wrapf(types.ErrInvalidPreinstall,
+					"preinstall %s, address %s already exists as a precompile", preinstall.Name, preinstall.Address)
 			}
 		}
 
 		codeHash := crypto.Keccak256Hash(common.FromHex(preinstall.Code))
 		codeHashBytes := codeHash.Bytes()
 		if types.IsEmptyCodeHash(codeHashBytes) {
-			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s has empty code hash", preinstall.Address)
+			k.Logger(ctx).Error("preinstall has empty code hash",
+				"preinstall address", preinstall.Address)
+			return errorsmod.Wrapf(types.ErrInvalidPreinstall,
+				"preinstall %s, address %s has empty code hash", preinstall.Name, preinstall.Address)
 		}
 
 		acct := k.accountKeeper.GetAccount(ctx, accAddress)
 		// check that the account is not already set
 		if acct != nil {
-			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already has an account in account keeper", preinstall.Address)
+			return errorsmod.Wrapf(types.ErrInvalidPreinstall,
+				"preinstall %s, address %s already has an account in account keeper", preinstall.Name, preinstall.Address)
 		}
 		// create account with the account keeper and set code hash
 		acct = k.accountKeeper.NewAccountWithAddress(ctx, accAddress)
