@@ -1,12 +1,7 @@
 package types
 
 import (
-	"encoding/hex"
-	"fmt"
-	"strings"
-
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -40,33 +35,5 @@ var DefaultPreinstalls = []Preinstall{
 
 // Validate performs basic validation checks on the Preinstall
 func (p Preinstall) Validate() error {
-	if p.Address == "" {
-		return fmt.Errorf("preinstall address cannot be empty")
-	}
-
-	// Check if Address is a valid hex string that can be converted to common.Address
-	if !common.IsHexAddress(p.Address) {
-		return fmt.Errorf("preinstall address %q is not a valid hex address", p.Address)
-	}
-
-	if p.Code == "" {
-		return fmt.Errorf("preinstall code cannot be empty")
-	}
-
-	// Check if Code is a valid hex string that can be converted to bytes
-	codeStr := p.Code
-	if strings.HasPrefix(codeStr, "0x") || strings.HasPrefix(codeStr, "0X") {
-		codeStr = codeStr[2:]
-	}
-	if _, err := hex.DecodeString(codeStr); err != nil {
-		return fmt.Errorf("preinstall code %q is not a valid hex string", p.Code)
-	}
-
-	// Check if Code has Empty Code Hash
-	codeHash := crypto.Keccak256Hash(common.FromHex(p.Code)).Bytes()
-	if IsEmptyCodeHash(codeHash) {
-		return fmt.Errorf("preinstall code %q has empty code hash", p.Code)
-	}
-
 	return nil
 }
