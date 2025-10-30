@@ -2,6 +2,7 @@ package backend
 
 import (
 	"bufio"
+	sdkmath "cosmossdk.io/math"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -193,4 +194,21 @@ func (suite *BackendTestSuite) signAndEncodeEthTx(msgEthereumTx *evmtypes.MsgEth
 	suite.Require().NoError(err)
 
 	return txBz
+}
+
+func (suite *BackendTestSuite) SetupMockCLient() {
+	c := suite.backend.clientCtx.Client.(*mocks.Client)
+	_, err := RegisterBlockResults(c, 1)
+	suite.Require().NoError(err)
+	height := rpctypes.NewBlockNumber(big.NewInt(1)).Int64()
+	_, err = RegisterHeader(c, &height, nil)
+	suite.Require().NoError(err)
+	RegisterHeaderByHashAny(c)
+	RegisterABCIQueryAny(c, 1)
+
+	queryClient := suite.backend.queryClient.QueryClient.(*mocks.EVMQueryClient)
+	RegisterParamsAny(queryClient)
+	RegisterBaseFee(queryClient, sdkmath.NewInt(1))
+	validator := sdk.AccAddress(tests.GenerateAddress().Bytes())
+	RegisterValidatorAccount(queryClient, validator)
 }

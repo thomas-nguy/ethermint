@@ -16,7 +16,11 @@
 package backend
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/tracers/logger"
+	"github.com/ethereum/go-ethereum/params"
 
 	errorsmod "cosmossdk.io/errors"
 	tmrpcclient "github.com/cometbft/cometbft/rpc/client"
@@ -479,4 +483,167 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *tmrpctypes.ResultBlock, i
 		baseFee,
 		b.chainID,
 	)
+}
+
+// CreateAccessList returns the list of addresses and storage keys used by the transaction (except for the
+// sender account and precompiles), plus the estimated gas if the access list were added to the transaction.
+func (b *Backend) CreateAccessList(
+	args evmtypes.TransactionArgs,
+	blockNrOrHash rpctypes.BlockNumberOrHash,
+	overrides *json.RawMessage,
+) (*rpctypes.AccessListResult, error) {
+	accessList, gasUsed, vmErr, err := b.createAccessList(args, blockNrOrHash, overrides)
+	if err != nil {
+		return nil, err
+	}
+
+	hexGasUsed := hexutil.Uint64(gasUsed)
+	result := rpctypes.AccessListResult{
+		AccessList: &accessList,
+		GasUsed:    &hexGasUsed,
+	}
+	if vmErr != nil {
+		result.Error = vmErr.Error()
+	}
+	return &result, nil
+}
+
+// createAccessList creates the access list for the transaction.
+// It iteratively expands the access list until it converges.
+// If the access list has converged, the access list is returned.
+// If the access list has not converged, an error is returned.
+// If the transaction itself fails, an vmErr is returned.
+func (b *Backend) createAccessList(
+	args evmtypes.TransactionArgs,
+	blockNrOrHash rpctypes.BlockNumberOrHash,
+	overrides *json.RawMessage,
+) (ethtypes.AccessList, uint64, error, error) {
+	args, err := b.SetTxDefaults(args)
+	if err != nil {
+		b.logger.Error("failed to set tx defaults", "error", err)
+		return nil, 0, nil, err
+	}
+
+	blockNum, err := b.BlockNumberFromTendermint(blockNrOrHash)
+	if err != nil {
+		b.logger.Error("failed to get block number", "error", err)
+		return nil, 0, nil, err
+	}
+
+	addressesToExclude, err := b.getAccessListExcludes(args, blockNum)
+	if err != nil {
+		b.logger.Error("failed to get access list excludes", "error", err)
+		return nil, 0, nil, err
+	}
+
+	prevTracer, traceArgs, err := b.initAccessListTracer(args, blockNum, addressesToExclude)
+	if err != nil {
+		b.logger.Error("failed to init access list tracer", "error", err)
+		return nil, 0, nil, err
+	}
+
+	// iteratively expand the access list
+	for {
+		accessList := prevTracer.AccessList()
+		traceArgs.AccessList = &accessList
+		res, err := b.DoCall(*traceArgs, blockNum, overrides)
+		if err != nil {
+			b.logger.Error("failed to apply transaction", "error", err)
+			return nil, 0, nil, fmt.Errorf("failed to apply transaction: %v err: %v", traceArgs.ToTransaction().Hash(), err)
+		}
+
+		// Check if access list has converged (no new addresses/slots accessed)
+		newTracer := logger.NewAccessListTracer(accessList, addressesToExclude)
+		if newTracer.Equal(prevTracer) {
+			b.logger.Info("access list converged", "accessList", accessList)
+			var vmErr error
+			if res.VmError != "" {
+				b.logger.Error("vm error after access list converged", "vmError", res.VmError)
+				vmErr = errors.New(res.VmError)
+			}
+			return accessList, res.GasUsed, vmErr, nil
+		}
+		prevTracer = newTracer
+	}
+}
+
+// getAccessListExcludes returns the addresses to exclude from the access list.
+// This includes the sender account, the target account (if provided), precompiles,
+// and any addresses in the authorization list.
+func (b *Backend) getAccessListExcludes(args evmtypes.TransactionArgs, blockNum rpctypes.BlockNumber) (map[common.Address]struct{}, error) {
+	header, err := b.HeaderByNumber(blockNum)
+	if err != nil {
+		b.logger.Error("failed to get header by number", "error", err)
+		return nil, err
+	}
+
+	// exclude sender and precompiles
+	addressesToExclude := make(map[common.Address]struct{})
+	addressesToExclude[args.GetFrom()] = struct{}{}
+	if args.To != nil {
+		addressesToExclude[*args.To] = struct{}{}
+	}
+
+	isMerge := b.ChainConfig().MergeNetsplitBlock != nil
+	precompiles := vm.ActivePrecompiles(b.ChainConfig().Rules(header.Number, isMerge, header.Time))
+	for _, addr := range precompiles {
+		addressesToExclude[addr] = struct{}{}
+	}
+
+	// check if enough gas was provided to cover all authorization lists
+	maxAuthorizations := uint64(*args.Gas) / params.CallNewAccountGas
+	if uint64(len(args.AuthorizationList)) > maxAuthorizations {
+		b.logger.Error("insufficient gas to process all authorizations", "maxAuthorizations", maxAuthorizations)
+		return nil, errors.New("insufficient gas to process all authorizations")
+	}
+
+	for _, auth := range args.AuthorizationList {
+		// validate authorization (duplicating stateTransition.validateAuthorization() logic from geth: https://github.com/ethereum/go-ethereum/blob/bf8f63dcd27e178bd373bfe41ea718efee2851dd/core/state_transition.go#L575)
+		nonceOverflow := auth.Nonce+1 < auth.Nonce
+		invalidChainID := !auth.ChainID.IsZero() && auth.ChainID.CmpBig(b.ChainConfig().ChainID) != 0
+		if nonceOverflow || invalidChainID {
+			b.logger.Error("invalid authorization", "auth", auth)
+			continue
+		}
+		if authority, err := auth.Authority(); err == nil {
+			addressesToExclude[authority] = struct{}{}
+		}
+	}
+
+	b.logger.Debug("access list excludes created", "addressesToExclude", addressesToExclude)
+	return addressesToExclude, nil
+}
+
+// initAccessListTracer initializes the access list tracer for the transaction.
+// It sets the default call arguments and creates a new access list tracer.
+// If an access list is provided in args, it uses that instead of creating a new one.
+func (b *Backend) initAccessListTracer(args evmtypes.TransactionArgs, blockNum rpctypes.BlockNumber, addressesToExclude map[common.Address]struct{}) (*logger.AccessListTracer, *evmtypes.TransactionArgs, error) {
+	header, err := b.HeaderByNumber(blockNum)
+	if err != nil {
+		b.logger.Error("failed to get header by number", "error", err)
+		return nil, nil, err
+	}
+
+	if args.Nonce == nil {
+		pending := blockNum == rpctypes.EthPendingBlockNumber
+		nonce, err := b.getAccountNonce(args.GetFrom(), pending, blockNum.Int64(), b.logger)
+		if err != nil {
+			b.logger.Error("failed to get account nonce", "error", err)
+			return nil, nil, err
+		}
+		nonce64 := hexutil.Uint64(nonce)
+		args.Nonce = &nonce64
+	}
+	if err = args.CallDefaults(b.RPCGasCap(), header.BaseFee, b.ChainConfig().ChainID); err != nil {
+		b.logger.Error("failed to set default call args", "error", err)
+		return nil, nil, err
+	}
+
+	tracer := logger.NewAccessListTracer(nil, addressesToExclude)
+	if args.AccessList != nil {
+		tracer = logger.NewAccessListTracer(*args.AccessList, addressesToExclude)
+	}
+
+	b.logger.Debug("access list tracer initialized", "tracer", tracer)
+	return tracer, &args, nil
 }

@@ -245,6 +245,9 @@ func (b *Backend) SetTxDefaults(args evmtypes.TransactionArgs) (evmtypes.Transac
 		args.Value = new(hexutil.Big)
 	}
 	if args.Nonce == nil {
+		if args.From == nil {
+			return args, errors.New("missing from in argument")
+		}
 		// get the nonce from the account retriever
 		// ignore error in case tge account doesn't exist yet
 		nonce, _ := b.getAccountNonce(*args.From, true, 0, b.logger)
