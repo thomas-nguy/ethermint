@@ -18,10 +18,7 @@ package types
 import (
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
-
-	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -30,6 +27,9 @@ import (
 	ethermint "github.com/evmos/ethermint/types"
 	"github.com/holiman/uint256"
 )
+
+// Ethereum block size is ~36000000, we use this value as default in case neither gas or global cap is specified, to protect against DOS
+const defaultMaxGas = uint64(100000000)
 
 // TransactionArgs represents the arguments to construct a new transaction
 // or a message call using JSON-RPC.
@@ -158,15 +158,7 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (*
 
 	// Set sender address or use zero address if none specified.
 	addr := args.GetFrom()
-	// Ethereum block size is ~36000000, we use this value as default in case neither gas or global cap is specified, to protect against DOS
-	defaultGas := uint64(100000000)
-	gas := defaultGas
-	if args.Gas != nil {
-		gas = uint64(*args.Gas)
-	}
-	if globalGasCap != 0 && globalGasCap < gas {
-		gas = globalGasCap
-	}
+	gas := computeGasLimit(args.Gas, globalGasCap)
 
 	var (
 		gasPrice  *big.Int
@@ -269,16 +261,6 @@ func (args *TransactionArgs) CallDefaults(globalGasCap uint64, baseFee *big.Int,
 			return fmt.Errorf("chainId does not match node's (have=%v, want=%v)", have, chainID)
 		}
 	}
-	if args.Gas == nil {
-		gas := globalGasCap
-		if gas == 0 {
-			gas = uint64(math.MaxUint64 / 2)
-		}
-		args.Gas = (*hexutil.Uint64)(&gas)
-	} else if globalGasCap > 0 && globalGasCap < uint64(*args.Gas) {
-		log.Warn("Caller gas above allowance, capping", "requested", args.Gas, "cap", globalGasCap)
-		args.Gas = (*hexutil.Uint64)(&globalGasCap)
-	}
 	if args.Nonce == nil {
 		args.Nonce = new(hexutil.Uint64)
 	}
@@ -299,6 +281,20 @@ func (args *TransactionArgs) CallDefaults(globalGasCap uint64, baseFee *big.Int,
 			args.MaxPriorityFeePerGas = new(hexutil.Big)
 		}
 	}
+	gas := computeGasLimit(args.Gas, globalGasCap)
+	args.Gas = (*hexutil.Uint64)(&gas)
 
 	return nil
+}
+
+func computeGasLimit(argGas *hexutil.Uint64, globalGasCap uint64) uint64 {
+	gas := defaultMaxGas
+	if argGas != nil {
+		gas = uint64(*argGas)
+	}
+	if globalGasCap != 0 && globalGasCap < gas {
+		gas = globalGasCap
+	}
+
+	return gas
 }
