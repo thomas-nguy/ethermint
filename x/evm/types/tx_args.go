@@ -18,9 +18,10 @@ package types
 import (
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/log"
 	"math"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"

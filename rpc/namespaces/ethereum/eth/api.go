@@ -115,7 +115,11 @@ type EthereumAPI interface {
 	FillTransaction(args evmtypes.TransactionArgs) (*rpctypes.SignTransactionResult, error)
 	Resend(ctx context.Context, args evmtypes.TransactionArgs, gasPrice *hexutil.Big, gasLimit *hexutil.Uint64) (common.Hash, error)
 	GetPendingTransactions() ([]*rpctypes.RPCTransaction, error)
-	CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, overrides *json.RawMessage) (*rpctypes.AccessListResult, error)
+	CreateAccessList(
+		args evmtypes.TransactionArgs,
+		blockNrOrHash rpctypes.BlockNumberOrHash,
+		overrides *json.RawMessage,
+	) (*rpctypes.AccessListResult, error)
 	// eth_signTransaction (on Ethereum.org)
 	// eth_getCompilers (on Ethereum.org)
 	// eth_compileSolidity (on Ethereum.org)

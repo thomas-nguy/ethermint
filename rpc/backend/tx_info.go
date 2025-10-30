@@ -18,6 +18,7 @@ package backend
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/ethereum/go-ethereum/params"
@@ -617,7 +618,11 @@ func (b *Backend) getAccessListExcludes(args evmtypes.TransactionArgs, blockNum 
 // initAccessListTracer initializes the access list tracer for the transaction.
 // It sets the default call arguments and creates a new access list tracer.
 // If an access list is provided in args, it uses that instead of creating a new one.
-func (b *Backend) initAccessListTracer(args evmtypes.TransactionArgs, blockNum rpctypes.BlockNumber, addressesToExclude map[common.Address]struct{}) (*logger.AccessListTracer, *evmtypes.TransactionArgs, error) {
+func (b *Backend) initAccessListTracer(
+	args evmtypes.TransactionArgs,
+	blockNum rpctypes.BlockNumber,
+	addressesToExclude map[common.Address]struct{},
+) (*logger.AccessListTracer, *evmtypes.TransactionArgs, error) {
 	header, err := b.HeaderByNumber(blockNum)
 	if err != nil {
 		b.logger.Error("failed to get header by number", "error", err)
