@@ -277,7 +277,7 @@ func NewEthermintApp(
 			TxPriority:      mempool.NewDefaultTxPriority(),
 			SignerExtractor: NewEthSignerExtractionAdapter(mempool.NewDefaultSignerExtractionAdapter()),
 			MaxTx:           maxTxs,
-		})
+		}, logger)
 		handler := baseapp.NewDefaultProposalHandler(mempool, app)
 
 		app.SetMempool(mempool)
