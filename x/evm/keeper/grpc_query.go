@@ -905,7 +905,7 @@ func (k Keeper) CreateAccessList(c context.Context, request *types.EthCallReques
 		newTracer := logger.NewAccessListTracer(accessList, addressesToExclude)
 		if newTracer.Equal(prevTracer) {
 			k.Logger(ctx).Info("access list converged", "accessList", accessList)
-			result := types.AccessListResult{Accesslist: accessList, Error: res.VmError, GasUsed: res.GasUsed}
+			result := types.AccessListResult{Accesslist: accessList, GasUsed: res.GasUsed}
 			bz, err := json.Marshal(&result)
 			k.Logger(ctx).Error("return", "result", result, "err", err)
 			return &types.CreateAccessListResponse{
