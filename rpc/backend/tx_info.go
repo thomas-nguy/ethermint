@@ -500,7 +500,7 @@ func (b *Backend) CreateAccessList(
 	}
 	gasUsed := hexutil.Uint64(res.GasUsed)
 	result := rpctypes.AccessListResult{
-		AccessList: res.Accesslist,
+		AccessList: &res.Accesslist,
 		GasUsed:    &gasUsed,
 	}
 	return &result, nil

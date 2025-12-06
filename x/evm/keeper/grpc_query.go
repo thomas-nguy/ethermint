@@ -910,7 +910,7 @@ func (k Keeper) CreateAccessList(c context.Context, request *types.EthCallReques
 				k.Logger(ctx).Error("vm error after access list converged", "vmError", res.VmError)
 				vmErr = errors.New(res.VmError)
 			}
-			result := types.AccessListResult{Accesslist: &accessList, Error: vmErr.Error(), GasUsed: res.GasUsed}
+			result := types.AccessListResult{Accesslist: accessList, Error: vmErr.Error(), GasUsed: res.GasUsed}
 			bz, err := json.Marshal(&result)
 			return &types.CreateAccessListResponse{
 				Data: bz,
