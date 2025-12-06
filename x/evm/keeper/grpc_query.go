@@ -912,6 +912,7 @@ func (k Keeper) CreateAccessList(c context.Context, request *types.EthCallReques
 			}
 			result := types.AccessListResult{Accesslist: accessList, Error: vmErr.Error(), GasUsed: res.GasUsed}
 			bz, err := json.Marshal(&result)
+			k.Logger(ctx).Error("return", "result", result, "err", err)
 			return &types.CreateAccessListResponse{
 				Data: bz,
 			}, err

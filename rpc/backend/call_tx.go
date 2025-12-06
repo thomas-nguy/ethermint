@@ -515,6 +515,7 @@ func (b *Backend) CreateAccessListCall(
 
 	res, err := b.queryClient.CreateAccessList(ctx, &req)
 	if err != nil {
+		b.logger.Error("error access list call", err)
 		return nil, err
 	}
 	if res == nil {
@@ -522,6 +523,7 @@ func (b *Backend) CreateAccessListCall(
 	}
 	var accessListResult evmtypes.AccessListResult
 	if err := json.Unmarshal(res.GetData(), &accessListResult); err != nil {
+		b.logger.Error("error unmarshal", err)
 		return nil, err
 	}
 	return &accessListResult, nil
