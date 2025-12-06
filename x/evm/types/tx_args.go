@@ -28,9 +28,6 @@ import (
 	"github.com/holiman/uint256"
 )
 
-// Ethereum block size is ~36000000, we use this value as default in case neither gas or global cap is specified, to protect against DOS
-const defaultMaxGas = uint64(100000000)
-
 // TransactionArgs represents the arguments to construct a new transaction
 // or a message call using JSON-RPC.
 // Duplicate struct definition since geth struct is in internal package
@@ -158,7 +155,15 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (*
 
 	// Set sender address or use zero address if none specified.
 	addr := args.GetFrom()
-	gas := computeGasLimit(args.Gas, globalGasCap)
+	// Ethereum block size is ~36000000, we use this value as default in case neither gas or global cap is specified, to protect against DOS
+	defaultGas := uint64(100000000)
+	gas := defaultGas
+	if args.Gas != nil {
+		gas = uint64(*args.Gas)
+	}
+	if globalGasCap != 0 && globalGasCap < gas {
+		gas = globalGasCap
+	}
 
 	var (
 		gasPrice  *big.Int
@@ -245,56 +250,4 @@ func (args *TransactionArgs) GetData() []byte {
 		return *args.Data
 	}
 	return nil
-}
-
-// CallDefaults sanitizes the transaction arguments, often filling in zero values,
-// for the purpose of eth_call class of RPC methods.
-func (args *TransactionArgs) CallDefaults(globalGasCap uint64, baseFee *big.Int, chainID *big.Int) error {
-	// Reject invalid combinations of pre- and post-1559 fee styles
-	if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
-		return errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
-	}
-	if args.ChainID == nil {
-		args.ChainID = (*hexutil.Big)(chainID)
-	} else {
-		if have := (*big.Int)(args.ChainID); have.Cmp(chainID) != 0 {
-			return fmt.Errorf("chainId does not match node's (have=%v, want=%v)", have, chainID)
-		}
-	}
-	if args.Nonce == nil {
-		args.Nonce = new(hexutil.Uint64)
-	}
-	if args.Value == nil {
-		args.Value = new(hexutil.Big)
-	}
-	if baseFee == nil {
-		// If there's no basefee, then it must be a non-1559 execution
-		if args.GasPrice == nil {
-			args.GasPrice = new(hexutil.Big)
-		}
-	} else {
-		// A basefee is provided, necessitating 1559-type execution
-		if args.MaxFeePerGas == nil {
-			args.MaxFeePerGas = new(hexutil.Big)
-		}
-		if args.MaxPriorityFeePerGas == nil {
-			args.MaxPriorityFeePerGas = new(hexutil.Big)
-		}
-	}
-	gas := computeGasLimit(args.Gas, globalGasCap)
-	args.Gas = (*hexutil.Uint64)(&gas)
-
-	return nil
-}
-
-func computeGasLimit(argGas *hexutil.Uint64, globalGasCap uint64) uint64 {
-	gas := defaultMaxGas
-	if argGas != nil {
-		gas = uint64(*argGas)
-	}
-	if globalGasCap != 0 && globalGasCap < gas {
-		gas = globalGasCap
-	}
-
-	return gas
 }

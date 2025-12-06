@@ -35,67 +35,57 @@ var _ tmrpcclient.Client = &mocks.Client{}
 func RegisterTxSearch(client *mocks.Client, query string, txBz []byte) {
 	resulTxs := []*tmrpctypes.ResultTx{{Tx: txBz}}
 	client.On("TxSearch", rpc.ContextWithHeight(1), query, false, (*int)(nil), (*int)(nil), "").
-		Return(&tmrpctypes.ResultTxSearch{Txs: resulTxs, TotalCount: 1}, nil).
-		Maybe()
+		Return(&tmrpctypes.ResultTxSearch{Txs: resulTxs, TotalCount: 1}, nil)
 }
 
 func RegisterTxSearchEmpty(client *mocks.Client, query string) {
 	client.On("TxSearch", rpc.ContextWithHeight(1), query, false, (*int)(nil), (*int)(nil), "").
-		Return(&tmrpctypes.ResultTxSearch{}, nil).
-		Maybe()
+		Return(&tmrpctypes.ResultTxSearch{}, nil)
 }
 
 func RegisterTxSearchError(client *mocks.Client, query string) {
 	client.On("TxSearch", rpc.ContextWithHeight(1), query, false, (*int)(nil), (*int)(nil), "").
-		Return(nil, errortypes.ErrInvalidRequest).
-		Maybe()
+		Return(nil, errortypes.ErrInvalidRequest)
 }
 
 // Broadcast Tx
 func RegisterBroadcastTx(client *mocks.Client, tx types.Tx) {
 	client.On("BroadcastTxSync", context.Background(), tx).
-		Return(&tmrpctypes.ResultBroadcastTx{}, nil).
-		Maybe()
+		Return(&tmrpctypes.ResultBroadcastTx{}, nil)
 }
 
 func RegisterBroadcastTxError(client *mocks.Client, tx types.Tx) {
 	client.On("BroadcastTxSync", context.Background(), tx).
-		Return(nil, errortypes.ErrInvalidRequest).
-		Maybe()
+		Return(nil, errortypes.ErrInvalidRequest)
 }
 
 // Unconfirmed Transactions
 func RegisterUnconfirmedTxs(client *mocks.Client, limit *int, txs []types.Tx) {
 	client.On("UnconfirmedTxs", rpc.ContextWithHeight(1), limit).
-		Return(&tmrpctypes.ResultUnconfirmedTxs{Txs: txs}, nil).
-		Maybe()
+		Return(&tmrpctypes.ResultUnconfirmedTxs{Txs: txs}, nil)
 }
 
 func RegisterUnconfirmedTxsEmpty(client *mocks.Client, limit *int) {
 	client.On("UnconfirmedTxs", rpc.ContextWithHeight(1), limit).
 		Return(&tmrpctypes.ResultUnconfirmedTxs{
 			Txs: make([]types.Tx, 2),
-		}, nil).
-		Maybe()
+		}, nil)
 }
 
 func RegisterUnconfirmedTxsError(client *mocks.Client, limit *int) {
 	client.On("UnconfirmedTxs", rpc.ContextWithHeight(1), limit).
-		Return(nil, errortypes.ErrInvalidRequest).
-		Maybe()
+		Return(nil, errortypes.ErrInvalidRequest)
 }
 
 // Status
 func RegisterStatus(client *mocks.Client) {
 	client.On("Status", rpc.ContextWithHeight(1)).
-		Return(&tmrpctypes.ResultStatus{}, nil).
-		Maybe()
+		Return(&tmrpctypes.ResultStatus{}, nil)
 }
 
 func RegisterStatusError(client *mocks.Client) {
 	client.On("Status", rpc.ContextWithHeight(1)).
-		Return(nil, errortypes.ErrInvalidRequest).
-		Maybe()
+		Return(nil, errortypes.ErrInvalidRequest)
 }
 
 // Block
@@ -107,8 +97,7 @@ func RegisterBlockMultipleTxs(
 	block := types.MakeBlock(height, txs, nil, nil)
 	block.ChainID = ChainID
 	resBlock := &tmrpctypes.ResultBlock{Block: block}
-	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).Return(resBlock, nil).
-		Maybe()
+	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).Return(resBlock, nil)
 	return resBlock, nil
 }
 
@@ -122,8 +111,7 @@ func RegisterBlock(
 		emptyBlock := types.MakeBlock(height, []types.Tx{}, nil, nil)
 		emptyBlock.ChainID = ChainID
 		resBlock := &tmrpctypes.ResultBlock{Block: emptyBlock}
-		client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).Return(resBlock, nil).
-			Maybe()
+		client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).Return(resBlock, nil)
 		return resBlock, nil
 	}
 
@@ -131,16 +119,14 @@ func RegisterBlock(
 	block := types.MakeBlock(height, []types.Tx{tx}, nil, nil)
 	block.ChainID = ChainID
 	resBlock := &tmrpctypes.ResultBlock{Block: block}
-	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).Return(resBlock, nil).
-		Maybe()
+	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).Return(resBlock, nil)
 	return resBlock, nil
 }
 
 // Block returns error
 func RegisterBlockError(client *mocks.Client, height int64) {
 	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
-		Return(nil, errortypes.ErrInvalidRequest).
-		Maybe()
+		Return(nil, errortypes.ErrInvalidRequest)
 }
 
 // Block not found
@@ -149,8 +135,7 @@ func RegisterBlockNotFound(
 	height int64,
 ) (*tmrpctypes.ResultBlock, error) {
 	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
-		Return(&tmrpctypes.ResultBlock{Block: nil}, nil).
-		Maybe()
+		Return(&tmrpctypes.ResultBlock{Block: nil}, nil)
 
 	return &tmrpctypes.ResultBlock{Block: nil}, nil
 }
@@ -160,8 +145,7 @@ func RegisterBlockPanic(client *mocks.Client, height int64) {
 	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
 		Return(func(context.Context, *int64) *tmrpctypes.ResultBlock {
 			panic("Block call panic")
-		}, nil).
-		Maybe()
+		}, nil)
 }
 
 func TestRegisterBlock(t *testing.T) {
@@ -182,14 +166,12 @@ func TestRegisterBlock(t *testing.T) {
 func RegisterConsensusParams(client *mocks.Client, height int64) {
 	consensusParams := types.DefaultConsensusParams()
 	client.On("ConsensusParams", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
-		Return(&tmrpctypes.ResultConsensusParams{ConsensusParams: *consensusParams}, nil).
-		Maybe()
+		Return(&tmrpctypes.ResultConsensusParams{ConsensusParams: *consensusParams}, nil)
 }
 
 func RegisterConsensusParamsError(client *mocks.Client, height int64) {
 	client.On("ConsensusParams", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
-		Return(nil, errortypes.ErrInvalidRequest).
-		Maybe()
+		Return(nil, errortypes.ErrInvalidRequest)
 }
 
 func TestRegisterConsensusParams(t *testing.T) {
@@ -227,8 +209,7 @@ func RegisterBlockResultsWithEventLog(client *mocks.Client, height int64) (*tmrp
 	}
 
 	client.On("BlockResults", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
-		Return(res, nil).
-		Maybe()
+		Return(res, nil)
 	return res, nil
 }
 
@@ -242,15 +223,13 @@ func RegisterBlockResults(
 	}
 
 	client.On("BlockResults", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
-		Return(res, nil).
-		Maybe()
+		Return(res, nil)
 	return res, nil
 }
 
 func RegisterBlockResultsError(client *mocks.Client, height int64) {
 	client.On("BlockResults", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
-		Return(nil, errortypes.ErrInvalidRequest).
-		Maybe()
+		Return(nil, errortypes.ErrInvalidRequest)
 }
 
 func TestRegisterBlockResults(t *testing.T) {
@@ -277,21 +256,18 @@ func RegisterBlockByHash(
 	resBlock := &tmrpctypes.ResultBlock{Block: block}
 
 	client.On("BlockByHash", rpc.ContextWithHeight(1), []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}).
-		Return(resBlock, nil).
-		Maybe()
+		Return(resBlock, nil)
 	return resBlock, nil
 }
 
 func RegisterBlockByHashError(client *mocks.Client, hash common.Hash, tx []byte) {
 	client.On("BlockByHash", rpc.ContextWithHeight(1), []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}).
-		Return(nil, errortypes.ErrInvalidRequest).
-		Maybe()
+		Return(nil, errortypes.ErrInvalidRequest)
 }
 
 func RegisterBlockByHashNotFound(client *mocks.Client, hash common.Hash, tx []byte) {
 	client.On("BlockByHash", rpc.ContextWithHeight(1), []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}).
-		Return(nil, nil).
-		Maybe()
+		Return(nil, nil)
 }
 
 // HeaderByHash
@@ -304,47 +280,36 @@ func RegisterHeaderByHash(
 	resHeader := &tmrpctypes.ResultHeader{Header: &block.Header}
 
 	client.On("HeaderByHash", rpc.ContextWithHeight(1), bytes.HexBytes(hash.Bytes())).
-		Return(resHeader, nil).
-		Maybe()
+		Return(resHeader, nil)
 	return resHeader, nil
 }
 
 func RegisterHeaderByHashError(client *mocks.Client, hash common.Hash, tx []byte) {
 	client.On("HeaderByHash", rpc.ContextWithHeight(1), bytes.HexBytes(hash.Bytes())).
-		Return(nil, errortypes.ErrInvalidRequest).
-		Maybe()
+		Return(nil, errortypes.ErrInvalidRequest)
 }
 
 func RegisterHeaderByHashNotFound(client *mocks.Client, hash common.Hash, tx []byte) {
 	client.On("HeaderByHash", rpc.ContextWithHeight(1), bytes.HexBytes(hash.Bytes())).
-		Return(&tmrpctypes.ResultHeader{Header: nil}, nil).
-		Maybe()
-}
-
-func RegisterHeaderByHashAny(client *mocks.Client) {
-	client.On("HeaderByHash", mock.Anything, mock.Anything).
-		Return(&tmrpctypes.ResultHeader{Header: &types.Header{Height: 1}}, nil).Maybe()
+		Return(&tmrpctypes.ResultHeader{Header: nil}, nil)
 }
 
 // Header
 func RegisterHeader(client *mocks.Client, height *int64, tx []byte) (*tmrpctypes.ResultHeader, error) {
 	block := types.MakeBlock(*height, []types.Tx{tx}, nil, nil)
 	resHeader := &tmrpctypes.ResultHeader{Header: &block.Header}
-	client.On("Header", rpc.ContextWithHeight(*height), height).Return(resHeader, nil).
-		Maybe()
+	client.On("Header", rpc.ContextWithHeight(*height), height).Return(resHeader, nil)
 	return resHeader, nil
 }
 
 func RegisterHeaderError(client *mocks.Client, height *int64) {
-	client.On("Header", rpc.ContextWithHeight(*height), height).Return(nil, errortypes.ErrInvalidRequest).
-		Maybe()
+	client.On("Header", rpc.ContextWithHeight(*height), height).Return(nil, errortypes.ErrInvalidRequest)
 }
 
 // Header not found
 func RegisterHeaderNotFound(client *mocks.Client, height int64) {
 	client.On("Header", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
-		Return(&tmrpctypes.ResultHeader{Header: nil}, nil).
-		Maybe()
+		Return(&tmrpctypes.ResultHeader{Header: nil}, nil)
 }
 
 func RegisterABCIQueryWithOptions(client *mocks.Client, height int64, path string, data bytes.HexBytes, opts tmrpcclient.ABCIQueryOptions) {
@@ -354,26 +319,12 @@ func RegisterABCIQueryWithOptions(client *mocks.Client, height int64, path strin
 				Value:  []byte{2}, // TODO replace with data.Bytes(),
 				Height: height,
 			},
-		}, nil).
-		Maybe()
+		}, nil)
 }
 
 func RegisterABCIQueryWithOptionsError(clients *mocks.Client, path string, data bytes.HexBytes, opts tmrpcclient.ABCIQueryOptions) {
 	clients.On("ABCIQueryWithOptions", context.Background(), path, data, opts).
-		Return(nil, errortypes.ErrInvalidRequest).
-		Maybe()
-}
-
-func RegisterABCIQueryAny(client *mocks.Client, height int64) {
-	client.On("ABCIQueryWithOptions", context.Background(), mock.Anything, mock.Anything, mock.Anything).
-		Return(&tmrpctypes.ResultABCIQuery{
-			Response: abci.ResponseQuery{
-				Value:  []byte{2}, // TODO replace with data.Bytes(),
-				Height: height,
-			},
-		}, nil).
-		Maybe()
-
+		Return(nil, errortypes.ErrInvalidRequest)
 }
 
 func RegisterABCIQueryAccount(clients *mocks.Client, data bytes.HexBytes, opts tmrpcclient.ABCIQueryOptions, acc client.Account) {
@@ -387,6 +338,5 @@ func RegisterABCIQueryAccount(clients *mocks.Client, data bytes.HexBytes, opts t
 				Value:  respBz,
 				Height: 1,
 			},
-		}, nil).
-		Maybe()
+		}, nil)
 }
