@@ -523,7 +523,6 @@ func (b *Backend) CreateAccessListCall(
 	}
 	var accessListResult evmtypes.AccessListResult
 	if err := json.Unmarshal(res.GetData(), &accessListResult); err != nil {
-		b.logger.Error("error unmarshal", err)
 		return nil, err
 	}
 	return &accessListResult, nil
