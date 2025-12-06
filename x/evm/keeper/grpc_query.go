@@ -895,14 +895,14 @@ func (k Keeper) CreateAccessList(c context.Context, request *types.EthCallReques
 		}
 
 		// Apply the transaction with the access list tracer
-		cfg.Tracer = prevTracer.Hooks()
+		newTracer := logger.NewAccessListTracer(accessList, addressesToExclude)
+		cfg.Tracer = newTracer.Hooks()
 		res, err := k.ApplyMessageWithConfig(ctx, msg, cfg, false)
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 
 		// Check if access list has converged (no new addresses/slots accessed)
-		newTracer := logger.NewAccessListTracer(accessList, addressesToExclude)
 		if newTracer.Equal(prevTracer) {
 			k.Logger(ctx).Info("access list converged", "accessList", accessList)
 			result := types.AccessListResult{Accesslist: accessList, GasUsed: res.GasUsed}
