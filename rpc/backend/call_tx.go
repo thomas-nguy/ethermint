@@ -515,7 +515,7 @@ func (b *Backend) CreateAccessListCall(
 
 	res, err := b.queryClient.CreateAccessList(ctx, &req)
 	if err != nil {
-		b.logger.Error("error access list call", err)
+		b.logger.Error("error access list call", "err", err)
 		return nil, err
 	}
 	if res == nil {
