@@ -465,8 +465,8 @@ func (b *Backend) GasPrice() (*hexutil.Big, error) {
 	return (*hexutil.Big)(result), nil
 }
 
-// CreateAccessListCall performs a simulated call operation through the evmtypes. It returns the
-// estimated gas used on the operation or an error if fails.
+// CreateAccessListCall performs a simulated call operation through the evmtypes. It returns a
+// list of accessed slot and an estimated gas used on the operation or an error if fails.
 func (b *Backend) CreateAccessListCall(
 	args evmtypes.TransactionArgs,
 	blockNr rpctypes.BlockNumber,
@@ -519,7 +519,7 @@ func (b *Backend) CreateAccessListCall(
 		return nil, err
 	}
 	if res == nil {
-		return nil, errors.New("result is nul")
+		return nil, errors.New("result is nil")
 	}
 	var accessListResult evmtypes.AccessListResult
 	if err := json.Unmarshal(res.GetData(), &accessListResult); err != nil {
