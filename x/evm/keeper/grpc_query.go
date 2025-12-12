@@ -861,8 +861,8 @@ func (k Keeper) CreateAccessList(c context.Context, request *types.EthCallReques
 	}
 	// ApplyMessageWithConfig expect correct nonce set in msg
 	if args.Nonce == nil {
-		nonce := k.GetNonce(ctx, args.GetFrom())
-		args.Nonce = (*hexutil.Uint64)(&nonce)
+		nonce := hexutil.Uint64(k.GetNonce(ctx, args.GetFrom()))
+		args.Nonce = &nonce
 	}
 	// Enforce the gas limit cap
 	gasCap := request.GasCap
@@ -884,8 +884,8 @@ func (k Keeper) CreateAccessList(c context.Context, request *types.EthCallReques
 	if args.AccessList != nil {
 		prevTracer = logger.NewAccessListTracer(*args.AccessList, addressesToExclude)
 	}
-	// iteratively expand the access list
-	for {
+	// iteratively expand the access list (max allowed interation 10 for safety)
+	for i := 0; i < 10; i++ {
 		// Retrieve the current access list to expand
 		accessList := prevTracer.AccessList()
 		args.AccessList = &accessList
@@ -913,6 +913,7 @@ func (k Keeper) CreateAccessList(c context.Context, request *types.EthCallReques
 		}
 		prevTracer = newTracer
 	}
+	return nil, status.Error(codes.Internal, "access list did not converge")
 }
 
 // getAccessListExcludes returns the addresses to exclude from the access list.
@@ -933,6 +934,9 @@ func (k Keeper) getAccessListExcludes(ctx sdk.Context, args types.TransactionArg
 	}
 
 	// check if enough gas was provided to cover all authorization lists
+	if args.Gas == nil {
+		return nil, errors.New("gas must be set when using authorization list")
+	}
 	maxAuthorizations := uint64(*args.Gas) / ethparams.CallNewAccountGas
 	if uint64(len(args.AuthorizationList)) > maxAuthorizations {
 		k.Logger(ctx).Error("insufficient gas to process all authorizations", "maxAuthorizations", maxAuthorizations)
