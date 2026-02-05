@@ -160,6 +160,19 @@ func CheckEthGasConsume(
 			return ctx, fmt.Errorf("gasWanted(%d) + gasLimit(%d) overflow", gasWanted, gasLimit)
 		}
 		gasWanted += gasLimit
+
+		// NOTE: it's important here to use the gas wanted instead of the gas consumed
+		// from the tx gas pool. The latter only has the value so far
+		// so it will never exceed the block gas limit.
+		if gasWanted > blockGasLimit(ctx) {
+			return ctx, errorsmod.Wrapf(
+				errortypes.ErrOutOfGas,
+				"tx gas (%d) exceeds block gas limit (%d)",
+				gasWanted,
+				blockGasLimit,
+			)
+		}
+
 		// user balance is already checked during CheckTx so there's no need to
 		// verify it again during ReCheckTx
 		if ctx.IsReCheckTx() {
@@ -338,4 +351,29 @@ func CheckAndSetEthSenderNonce(
 	}
 
 	return nil
+}
+
+// BlockGasLimit returns the max gas (limit) defined in the block gas meter. If the meter is not
+// set, it returns the max gas from the application consensus params.
+// NOTE: see https://github.com/cosmos/cosmos-sdk/issues/9514 for full reference
+func blockGasLimit(ctx sdk.Context) uint64 {
+	// Otherwise get from the consensus parameters
+	cp := ctx.ConsensusParams()
+	if cp.Block == nil {
+		return 0
+	}
+
+	maxGas := cp.Block.MaxGas
+
+	// Setting max_gas to -1 in CometBFT means there is no limit on the maximum gas consumption for transactions
+	// https://github.com/cometbft/cometbft/blob/v0.37.2/proto/tendermint/types/params.proto#L25-L27
+	if maxGas == -1 {
+		return math.MaxUint64
+	}
+
+	if maxGas > 0 {
+		return uint64(maxGas) // #nosec G115 -- maxGas is int64 type. It can never be greater than math.MaxUint64
+	}
+
+	return 0
 }
