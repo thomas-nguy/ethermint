@@ -170,7 +170,6 @@ func CheckEthGasConsume(
 			return ctx, fmt.Errorf("gasWanted(%d) + gasLimit(%d) overflow", gasWanted, gasLimit)
 		}
 		gasWanted += gasLimit
-
 		// user balance is already checked during CheckTx so there's no need to
 		// verify it again during ReCheckTx
 		if ctx.IsReCheckTx() {
@@ -195,7 +194,7 @@ func CheckEthGasConsume(
 		)
 	}
 
-	// return error if the tx gas is greater than the block limit (max gas)
+	// Return error if the tx gas is greater than the block limit (max gas)
 	// NOTE: it's important here to use the gas wanted instead of the gas consumed
 	// from the tx gas pool. The later only has the value so far since the
 	// EthSetupContextDecorator so it will never exceed the block gas limit.
