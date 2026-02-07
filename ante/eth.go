@@ -154,6 +154,15 @@ func CheckEthGasConsume(
 
 		// We can't trust the tx gas limit, because we'll refund the unused gas.
 		gasLimit := msgEthTx.GetGas()
+		// Prevent tx to be stucked into the mempool in case it exceed the block gas limit
+		if gasLimit > blockGasLimit {
+			return ctx, errorsmod.Wrapf(
+				errortypes.ErrOutOfGas,
+				"tx gas (%d) exceeds block gas limit (%d)",
+				gasLimit,
+				blockGasLimit,
+			)
+		}
 		if ctx.IsCheckTx() && maxGasWanted != 0 {
 			gasLimit = min(gasLimit, maxGasWanted)
 		}
@@ -161,19 +170,6 @@ func CheckEthGasConsume(
 			return ctx, fmt.Errorf("gasWanted(%d) + gasLimit(%d) overflow", gasWanted, gasLimit)
 		}
 		gasWanted += gasLimit
-
-		// return error if the tx gas is greater than the block limit (max gas)
-		// NOTE: it's important here to use the gas wanted instead of the gas consumed
-		// from the tx gas pool. The later only has the value so far since the
-		// EthSetupContextDecorator so it will never exceed the block gas limit.
-		if gasWanted > blockGasLimit {
-			return ctx, errorsmod.Wrapf(
-				errortypes.ErrOutOfGas,
-				"tx gas (%d) exceeds block gas limit (%d)",
-				gasWanted,
-				blockGasLimit,
-			)
-		}
 
 		// user balance is already checked during CheckTx so there's no need to
 		// verify it again during ReCheckTx
@@ -196,6 +192,19 @@ func CheckEthGasConsume(
 				sdk.EventTypeTx,
 				sdk.NewAttribute(sdk.AttributeKeyFee, fees.String()),
 			),
+		)
+	}
+
+	// return error if the tx gas is greater than the block limit (max gas)
+	// NOTE: it's important here to use the gas wanted instead of the gas consumed
+	// from the tx gas pool. The later only has the value so far since the
+	// EthSetupContextDecorator so it will never exceed the block gas limit.
+	if gasWanted > blockGasLimit {
+		return ctx, errorsmod.Wrapf(
+			errortypes.ErrOutOfGas,
+			"tx gas (%d) exceeds block gas limit (%d)",
+			gasWanted,
+			blockGasLimit,
 		)
 	}
 
