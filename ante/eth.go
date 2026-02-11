@@ -166,7 +166,7 @@ func CheckEthGasConsume(
 		if ctx.IsCheckTx() && maxGasWanted != 0 {
 			gasLimit = min(gasLimit, maxGasWanted)
 		}
-		if gasWanted > math.MaxInt64-gasLimit {
+		if gasWanted > math.MaxUint64-gasLimit {
 			return ctx, fmt.Errorf("gasWanted(%d) + gasLimit(%d) overflow", gasWanted, gasLimit)
 		}
 		gasWanted += gasLimit
