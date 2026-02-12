@@ -156,7 +156,6 @@ func CheckEthGasConsume(
 			return ctx, fmt.Errorf("gasWanted(%d) + gasLimit(%d) overflow", gasWanted, gasLimit)
 		}
 		gasWanted += gasLimit
-
 		// user balance is already checked during CheckTx so there's no need to
 		// verify it again during ReCheckTx
 		if ctx.IsReCheckTx() {
@@ -181,6 +180,8 @@ func CheckEthGasConsume(
 		)
 	}
 
+	ctx.EventManager().EmitEvents(events)
+
 	blockGasLimit := ethermint.BlockGasLimit(ctx)
 	if gasWanted > blockGasLimit {
 		return ctx, errorsmod.Wrapf(
@@ -190,8 +191,6 @@ func CheckEthGasConsume(
 			blockGasLimit,
 		)
 	}
-
-	ctx.EventManager().EmitEvents(events)
 
 	// Set tx GasMeter with a limit of GasWanted (i.e gas limit from the Ethereum tx).
 	// The gas consumed will be then reset to the gas used by the state transition
