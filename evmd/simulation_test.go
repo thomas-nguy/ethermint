@@ -4,12 +4,13 @@ package evmd_test
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/evmos/ethermint/ante/cache"
 	"math/rand"
 	"os"
 	"runtime/debug"
 	"strings"
 	"testing"
+
+	"github.com/evmos/ethermint/ante/cache"
 
 	"github.com/stretchr/testify/require"
 
@@ -82,7 +83,6 @@ func NewSimApp(logger log.Logger, db dbm.DB, baseAppOptions ...func(*baseapp.Bas
 		IBCKeeper:       app.IBCKeeper,
 		EvmKeeper:       app.EvmKeeper,
 		FeeMarketKeeper: app.FeeMarketKeeper,
-		MaxTxGasWanted:  0,
 		AnteCache:       cache.NewAnteCache(0),
 	})
 	if err != nil {

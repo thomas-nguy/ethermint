@@ -17,7 +17,6 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/evmos/ethermint/ante"
-	"github.com/evmos/ethermint/server/config"
 	"github.com/evmos/ethermint/tests"
 	ethermint "github.com/evmos/ethermint/types"
 	"github.com/evmos/ethermint/x/evm/statedb"
@@ -354,7 +353,7 @@ func (suite *AnteTestSuite) TestEthGasConsumeDecorator() {
 				suite.Require().Panics(func() {
 					_, _ = ante.CheckEthGasConsume(
 						suite.ctx.WithIsCheckTx(true).WithGasMeter(storetypes.NewGasMeter(1)), tc.tx,
-						rules, suite.app.EvmKeeper, baseFee, config.DefaultMaxTxGasWanted, evmtypes.DefaultEVMDenom,
+						rules, suite.app.EvmKeeper, baseFee, evmtypes.DefaultEVMDenom,
 					)
 				})
 				return
@@ -362,7 +361,7 @@ func (suite *AnteTestSuite) TestEthGasConsumeDecorator() {
 
 			ctx, err := ante.CheckEthGasConsume(
 				suite.ctx.WithIsCheckTx(true).WithGasMeter(storetypes.NewInfiniteGasMeter()), tc.tx,
-				rules, suite.app.EvmKeeper, baseFee, config.DefaultMaxTxGasWanted, evmtypes.DefaultEVMDenom,
+				rules, suite.app.EvmKeeper, baseFee, evmtypes.DefaultEVMDenom,
 			)
 			if tc.expPass {
 				suite.Require().NoError(err)
