@@ -39,6 +39,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 * (ante) [#829](https://github.com/crypto-org-chain/ethermint/pull/829) fix: validate payload messages in legacy EIP-712
 * (evm) [#830](https://github.com/crypto-org-chain/ethermint/pull/830) fix: revert batch nonce management for call and create, align implementation with geth
+* (ante) [#839](https://github.com/crypto-org-chain/ethermint/pull/839) fix: remove unecessary maxGasWanted
 
 ## [v0.23.0] - 2026-01-13
 
