@@ -20,7 +20,7 @@ How a call to a custom precompile moves from the Cosmos app down into go-ethereu
    - Create the geth EVM with `vm.NewEVM(blockCtx, stateDB, chainConfig, vmConfig)`.
    - Call **`evm.SetPrecompiles(contracts)`** so this EVM instance uses both default and custom precompiles.
 
-4. **StateDB.Prepare** – Before execution, the keeper calls `stateDB.Prepare(rules, msg.From, coinbase, msg.To, vm.ActivePrecompiles(rules), msg.AccessList)`. That adds default and custom precompile addresses to the access list (EIP-2929) and resets transient storage.
+4. **StateDB.Prepare** – Before execution, the keeper calls `stateDB.Prepare(rules, msg.From, coinbase, msg.To, vm.ActivePrecompiles(rules), msg.AccessList)`. That adds default precompile addresses to the access list (EIP-2929) and resets transient storage.
 
 5. **EVM execution (geth)** – The keeper calls either **`evm.Create(sender, data, gas, value)`** (contract creation) or **`evm.Call(sender, to, data, gas, value)`** (normal call). Execution runs inside go-ethereum’s EVM and interpreter.
 
