@@ -37,6 +37,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## Unreleased
 
+* (rpc) [#870](https://github.com/crypto-org-chain/ethermint/pull/870) fix(rpc): fix eth_getBlockReceipts crash
 * (ante) [#829](https://github.com/crypto-org-chain/ethermint/pull/829) fix: validate payload messages in legacy EIP-712
 * (deps) [#779](https://github.com/crypto-org-chain/ethermint/pull/779) fix: Optimize staking endblocker with an in-memory KV store and standardize gas consumption for staking related messages. Temporary patch to not allow staking messages.
 
