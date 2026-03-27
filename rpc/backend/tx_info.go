@@ -160,26 +160,29 @@ func (b *Backend) GetGasUsed(res *ethermint.TxResult, gas uint64) uint64 {
 // GetTransactionReceipt returns the receipt identified by hash. When block
 // is nil the tx is resolved via the KV indexer; otherwise the receipt is
 // rebuilt from block to guard against indexer hash→height overwrites.
-func (b *Backend) GetTransactionReceipt(hash common.Hash, block *tmrpctypes.ResultBlock) (map[string]interface{}, error) {
+func (b *Backend) GetTransactionReceipt(hash common.Hash, block *tmrpctypes.ResultBlock, blockRes *tmrpctypes.ResultBlockResults) (map[string]interface{}, error) {
 	b.logger.Debug("eth_getTransactionReceipt", "hash", hash)
 
 	if block == nil {
 		return b.getTransactionReceiptByIndexer(hash)
 	}
 
-	blockResults, err := b.TendermintBlockResultByNumber(&block.Block.Height)
-	if err != nil {
-		b.logger.Debug("failed to retrieve block results", "height", block.Block.Height, "error", err.Error())
-		return nil, nil
+	var err error
+	if blockRes == nil {
+		blockRes, err = b.TendermintBlockResultByNumber(&block.Block.Height)
+		if err != nil {
+			b.logger.Debug("failed to retrieve block results", "height", block.Block.Height, "error", err.Error())
+			return nil, nil
+		}
 	}
 
-	input, err := b.collectReceiptEntriesFromBlock(block, blockResults, &hash)
+	input, err := b.collectReceiptEntriesFromBlock(block, blockRes, &hash)
 	if err != nil {
 		return nil, err
 	}
 	for i := range input {
 		if input[i].hash == hash {
-			return b.buildReceiptDirect(block, blockResults, input[i].txResult, input[i].ethMsg)
+			return b.buildReceiptDirect(block, blockRes, input[i].txResult, input[i].ethMsg)
 		}
 	}
 	b.logger.Debug("tx not found in block", "hash", hash, "height", block.Block.Height)
@@ -400,6 +403,9 @@ func (b *Backend) buildReceiptDirect(
 	if err != nil {
 		b.logger.Debug("failed to parse logs", "hash", hash, "error", err.Error())
 	}
+	if logs == nil {
+		logs = []*ethtypes.Log{}
+	}
 
 	if res.EthTxIndex == -1 {
 		// Reachable via TM-indexer fallback (ParseTxIndexerResult) when events
@@ -460,11 +466,7 @@ func (b *Backend) buildReceiptDirect(
 		// sender and receiver (contract or EOA) addreses
 		"from": from,
 		"to":   txData.To(),
-		"type": hexutil.Uint(ethMsg.AsTransaction().Type()),
-	}
-
-	if logs == nil {
-		receipt["logs"] = [][]*ethtypes.Log{}
+		"type": hexutil.Uint(txData.Type()),
 	}
 
 	// If the ContractAddress is 20 0x0 bytes, assume it is not a contract creation

@@ -606,7 +606,7 @@ func (suite *BackendTestSuite) TestGetTransactionReceipt() {
 			err := suite.backend.indexer.IndexBlock(tc.block, tc.blockResult)
 			suite.Require().NoError(err)
 
-			txReceipt, err := suite.backend.GetTransactionReceipt(tc.tx.Hash(), nil)
+			txReceipt, err := suite.backend.GetTransactionReceipt(tc.tx.Hash(), nil, nil)
 			if tc.expPass {
 				suite.Require().NoError(err)
 				suite.Require().Equal(txReceipt, tc.expTxReceipt)
@@ -642,7 +642,7 @@ func (suite *BackendTestSuite) TestGetTransactionReceipt_BlockScopedWhenIndexerO
 	client.On("BlockResults", rpctypes.ContextWithHeight(1), mock.AnythingOfType("*int64")).
 		Return(blockRes1, nil)
 
-	receipt, err := suite.backend.GetTransactionReceipt(txHash, resBlock1)
+	receipt, err := suite.backend.GetTransactionReceipt(txHash, resBlock1, nil)
 	suite.Require().NoError(err)
 	suite.Require().NotNil(receipt)
 	suite.Require().Equal(hexutil.Uint64(1), receipt["blockNumber"])
@@ -663,7 +663,7 @@ func (suite *BackendTestSuite) TestGetTransactionReceipt_BlockScopedWhenBlockRes
 	resBlock1 := &tmrpctypes.ResultBlock{Block: block1}
 	RegisterBlockResultsError(client, 1)
 
-	receipt, err := suite.backend.GetTransactionReceipt(txHash, resBlock1)
+	receipt, err := suite.backend.GetTransactionReceipt(txHash, resBlock1, nil)
 	suite.Require().NoError(err)
 	suite.Require().Nil(receipt)
 }
