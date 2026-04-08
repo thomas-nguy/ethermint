@@ -67,6 +67,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 * (ante) [#829](https://github.com/crypto-org-chain/ethermint/pull/829) fix: validate payload messages in legacy EIP-712
 * (evm) [#873](https://github.com/crypto-org-chain/ethermint/pull/873) fix: prevent nested StateDB storage overwrites
 * (evm) [#875](https://github.com/crypto-org-chain/ethermint/pull/875) fix: prevent nil pointer dereference on BLOBBASEFEE opcode 
+* (rpc) [#869](https://github.com/crypto-org-chain/ethermint/pull/869) feat(RPC): implement `eth_simulateV1` RPC
 * (evm) [#830](https://github.com/crypto-org-chain/ethermint/pull/830) fix: revert batch nonce management for call and create, align implementation with geth
 * (ante) [#839](https://github.com/crypto-org-chain/ethermint/pull/839) fix: remove unecessary maxGasWanted
 * (app) [#852](https://github.com/crypto-org-chain/ethermint/pull/852) Add interface implementation for evm and feemarket module.
@@ -97,7 +98,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 * (evm) [#809](https://github.com/crypto-org-chain/ethermint/pull/809) fix: relax preinstall rules
 * (rpc) [#814](https://github.com/crypto-org-chain/ethermint/pull/814) fix: estimate gas not accurate
 * (evm) [#815](https://github.com/crypto-org-chain/ethermint/pull/815) fix: nonce increments on EIP-7702 contract creation
-* (evm) [#822](https://github.com/crypto-org-chain/ethermint/pull/822) refactor:replace MsgEthereumTxResponse with EthCallResponse in EVM calls 
+* (evm) [#822](https://github.com/crypto-org-chain/ethermint/pull/822) refactor: replace MsgEthereumTxResponse with EthCallResponse in EVM calls
 
 ## [v0.22.0] - 2025-08-12
 
