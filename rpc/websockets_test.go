@@ -20,7 +20,7 @@ func TestIsOriginAllowed(t *testing.T) {
 	t.Run("allowlistEnforced", func(t *testing.T) {
 		s := &websocketsServer{
 			wsOriginAllowAll: false,
-			wsOrigins: map[string]struct{}{
+		wsOrigins: map[string]struct{}{
 				"http://allowed.example": {},
 			},
 		}
