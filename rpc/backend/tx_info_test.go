@@ -647,6 +647,8 @@ func (suite *BackendTestSuite) TestGetTransactionReceipt_BlockScopedWhenIndexerO
 	suite.Require().NotNil(receipt)
 	suite.Require().Equal(hexutil.Uint64(1), receipt["blockNumber"])
 
+	// GetBlockReceipts uses block-walk and returns the receipt physically in the block,
+	// regardless of what the KV indexer says.
 	receipts, err := suite.backend.GetBlockReceipts(rpctypes.BlockNumber(1))
 	suite.Require().NoError(err)
 	suite.Require().Len(receipts, 1)
@@ -929,6 +931,50 @@ func (suite *BackendTestSuite) TestGetBlockReceipts_IgnoresIndexerHashMismatch()
 	suite.Require().Equal(msgEthereumTx.Hash(), receipts[0]["transactionHash"])
 }
 
+// TestGetBlockReceipts_BlockGasExceeded verifies that eth_getBlockReceipts includes
+// a tx that failed with "exceeds block gas limit" (KV indexer may not have it).
+func (suite *BackendTestSuite) TestGetBlockReceipts_BlockGasExceeded() {
+	suite.SetupTest()
+
+	msgEthereumTx, txBz := suite.buildEthereumTx()
+	txHash := msgEthereumTx.Hash()
+
+	// ExecTxResult with Code=11 (out of block gas): no ethereum_tx events.
+	execTx := &abci.ExecTxResult{
+		Code:    11,
+		Log:     "out of gas in location: block gas meter; gasWanted: 21000",
+		GasUsed: 21000,
+		Events:  []abci.Event{},
+	}
+
+	block := &types.Block{Header: types.Header{Height: 1}, Data: types.Data{Txs: []types.Tx{txBz}}}
+
+	db := dbm.NewMemDB()
+	suite.backend.indexer = indexer.NewKVIndexer(db, tmlog.NewNopLogger(), suite.backend.clientCtx)
+	suite.Require().NoError(suite.backend.indexer.IndexBlock(block, []*abci.ExecTxResult{execTx}))
+	// Verify the tx hash is indexed (kv_indexer indexes block-gas-exceeded txs directly).
+	res, err := suite.backend.indexer.GetByTxHash(txHash)
+	suite.Require().NoError(err)
+	suite.Require().NotNil(res)
+
+	client := suite.backend.clientCtx.Client.(*mocks.Client)
+	queryClient := suite.backend.queryClient.QueryClient.(*mocks.EVMQueryClient)
+	_, err = RegisterBlock(client, 1, txBz)
+	suite.Require().NoError(err)
+
+	blockRes := &tmrpctypes.ResultBlockResults{Height: 1, TxsResults: []*abci.ExecTxResult{execTx}}
+	client.On("BlockResults", rpctypes.ContextWithHeight(1), mock.AnythingOfType("*int64")).Return(blockRes, nil)
+
+	var header metadata.MD
+	RegisterParams(queryClient, &header, 1)
+	RegisterParamsWithoutHeader(queryClient, 1)
+
+	receipts, err := suite.backend.GetBlockReceipts(rpctypes.BlockNumber(1))
+	suite.Require().NoError(err)
+	suite.Require().Len(receipts, 1)
+	suite.Require().Equal(hexutil.Uint(0), receipts[0]["status"]) // ReceiptStatusFailed
+	suite.Require().Equal(txHash, receipts[0]["transactionHash"])
+}
 func (suite *BackendTestSuite) TestGetGasUsed() {
 	origin := suite.backend.cfg.JSONRPC.FixRevertGasRefundHeight
 	testCases := []struct {
