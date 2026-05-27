@@ -17,7 +17,6 @@ package keeper
 
 import (
 	"fmt"
-	"math/big"
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
@@ -317,8 +316,8 @@ func (k *Keeper) ApplyMessage(ctx sdk.Context, msg *core.Message, tracer *tracin
 // # debugTrace parameter
 //
 // The message is applied with steps to mimic AnteHandler
-//  1. the sender is consumed with gasLimit * gasPrice in full at the beginning of the execution and
-//     then refund with unused gas after execution.
+//  1. deduct gasLimit * gasPrice (effective gas price) through the fee collector, then refund unused
+//     gas after execution — same path as CheckEthGasConsume and ApplyTransaction.
 //  2. sender nonce is incremented by 1 before execution
 func (k *Keeper) ApplyMessageWithConfig(
 	ctx sdk.Context,
@@ -355,11 +354,18 @@ func (k *Keeper) ApplyMessageWithConfig(
 	leftoverGas := msg.GasLimit
 	sender := msg.From
 	tracer := cfg.GetTracer()
-	debugFn := func() {
-		if tracer != nil && cfg.DebugTrace {
-			stateDB.AddBalance(sender, uint256.NewInt(1).Mul(uint256.MustFromBig(msg.GasPrice), uint256.NewInt(leftoverGas)), tracing.BalanceIncreaseGasReturn)
+
+	if cfg.DebugTrace {
+		feeAmt := debugTraceFeeAmount(msg, cfg.BaseFee)
+		if feeAmt.Sign() > 0 {
+			fees := sdk.Coins{{Denom: cfg.Params.EvmDenom, Amount: sdkmath.NewIntFromBigInt(feeAmt)}}
+			if err := k.DeductTxCostsFromUserBalance(ctx, fees, msg.From); err != nil {
+				return nil, err
+			}
 		}
+		tracingStateDB.SetNonce(sender, stateDB.GetNonce(sender)+1, tracing.NonceChangeEoACall)
 	}
+
 	if tracer != nil {
 		if tracer.OnGasChange != nil {
 			tracer.OnGasChange(0, msg.GasLimit, tracing.GasChangeTxInitialBalance)
@@ -379,20 +385,10 @@ func (k *Keeper) ApplyMessageWithConfig(
 		}
 
 		defer func() {
-			debugFn()
 			if tracer.OnTxEnd != nil {
 				tracer.OnTxEnd(&ethtypes.Receipt{GasUsed: gasUsed}, err)
 			}
 		}()
-
-		if cfg.DebugTrace {
-			amount := new(big.Int).Mul(msg.GasPrice, new(big.Int).SetUint64(msg.GasLimit))
-			stateDB.SubBalance(sender, uint256.MustFromBig(amount), tracing.BalanceDecreaseGasBuy)
-			if err := stateDB.Error(); err != nil {
-				return nil, err
-			}
-			tracingStateDB.SetNonce(sender, stateDB.GetNonce(sender)+1, tracing.NonceChangeEoACall)
-		}
 	}
 
 	rules := cfg.Rules
@@ -538,8 +534,14 @@ func (k *Keeper) ApplyMessageWithConfig(
 	// reset leftoverGas, to be used by the tracer
 	leftoverGas = msg.GasLimit - gasUsed
 
-	debugFn()
-	debugFn = func() {}
+	if cfg.DebugTrace {
+		if err := k.RefundGas(ctx, msg, leftoverGas, cfg.Params.EvmDenom); err != nil {
+			return nil, errorsmod.Wrapf(err, "failed to refund leftover gas to sender %s", msg.From)
+		}
+		if tracer != nil && tracer.OnGasChange != nil {
+			tracer.OnGasChange(leftoverGas, 0, tracing.GasChangeTxLeftOverReturned)
+		}
+	}
 
 	// The dirty states in `StateDB` is either committed or discarded after return
 	if commit {

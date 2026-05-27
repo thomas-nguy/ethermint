@@ -522,8 +522,8 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 	if req == nil || req.Msg == nil {
 		return nil, status.Error(codes.InvalidArgument, "request and message cannot be empty")
 	}
-	if req.BaseFee != nil {
-		baseFee = big.NewInt(req.BaseFee.Int64())
+	if req.BaseFee != nil && !req.BaseFee.IsNil() {
+		baseFee = req.BaseFee.BigInt()
 	}
 	resultData, err := execTrace(
 		c,

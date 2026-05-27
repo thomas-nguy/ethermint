@@ -38,6 +38,7 @@ import (
 	"github.com/evmos/ethermint/x/evm/types"
 	evmtypes "github.com/evmos/ethermint/x/evm/types"
 	feemarkettypes "github.com/evmos/ethermint/x/feemarket/types"
+	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -656,6 +657,54 @@ func (suite *StateTransitionTestSuite) TestApplyMessage() {
 	suite.Require().NoError(err)
 	suite.Require().Equal(expectedGasUsed, res.GasUsed)
 	suite.Require().False(res.Failed())
+}
+
+func (suite *StateTransitionTestSuite) TestApplyMessageWithConfig_DebugTraceFee() {
+	t := suite.T()
+	suite.SetupTestWithCb(t, func(a *evmd.EthermintApp, genesis evmd.GenesisState) evmd.GenesisState {
+		feemarketGenesis := feemarkettypes.DefaultGenesisState()
+		feemarketGenesis.Params.EnableHeight = 1
+		feemarketGenesis.Params.NoBaseFee = false
+		genesis[feemarkettypes.ModuleName] = a.AppCodec().MustMarshalJSON(feemarketGenesis)
+		return genesis
+	})
+	suite.mintFeeCollector = true
+	suite.SetupTest()
+
+	baseFee := big.NewInt(1_000_000_000)
+	gasTipCap := big.NewInt(0)
+	gasFeeCap := big.NewInt(5_000_000_000_000)
+	gasLimit := uint64(2_000_000)
+	effectiveGas := new(big.Int).Add(gasTipCap, baseFee)
+	effectiveFee := new(big.Int).Mul(effectiveGas, new(big.Int).SetUint64(gasLimit))
+
+	to := common.BigToAddress(big.NewInt(1))
+	msg := &core.Message{
+		From:             suite.Address,
+		To:               &to,
+		Nonce:            suite.App.EvmKeeper.GetNonce(suite.Ctx, suite.Address),
+		GasLimit:         gasLimit,
+		GasPrice:         gasFeeCap, // fee cap, not effective price
+		GasFeeCap:        gasFeeCap,
+		GasTipCap:        gasTipCap,
+		Value:            big.NewInt(0),
+		Data:             nil,
+		SkipNonceChecks:  false,
+		SkipFromEOACheck: false,
+	}
+
+	cfg, err := suite.App.EvmKeeper.EVMConfig(suite.Ctx, suite.App.EvmKeeper.ChainID(), common.Hash{})
+	suite.Require().NoError(err)
+	cfg.BaseFee = baseFee
+	cfg.DebugTrace = true
+	cfg.TxConfig = suite.App.EvmKeeper.TxConfig(suite.Ctx, common.Hash{})
+
+	suite.Require().NoError(
+		suite.App.EvmKeeper.SetBalance(suite.Ctx, suite.Address, *uint256.MustFromBig(effectiveFee), types.DefaultEVMDenom),
+	)
+
+	_, err = suite.App.EvmKeeper.ApplyMessageWithConfig(suite.Ctx, msg, cfg, false)
+	suite.Require().NoError(err, "debug trace must deduct effective fee, not fee cap * gas")
 }
 
 func (suite *StateTransitionTestSuite) TestApplyMessageWithConfig() {
