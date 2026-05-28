@@ -535,7 +535,8 @@ func (k *Keeper) ApplyMessageWithConfig(
 	leftoverGas = msg.GasLimit - gasUsed
 
 	if cfg.DebugTrace {
-		if err := k.RefundGas(ctx, msg, leftoverGas, cfg.Params.EvmDenom); err != nil {
+		gasPrice := debugTraceGasPrice(msg, cfg.BaseFee)
+		if err := k.RefundGasByGasPrice(ctx, msg, gasPrice, leftoverGas, cfg.Params.EvmDenom); err != nil {
 			return nil, errorsmod.Wrapf(err, "failed to refund leftover gas to sender %s", msg.From)
 		}
 		if tracer != nil && tracer.OnGasChange != nil {
