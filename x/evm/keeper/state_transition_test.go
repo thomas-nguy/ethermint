@@ -692,7 +692,6 @@ func (suite *StateTransitionTestSuite) TestApplyMessageWithConfig_DebugTraceFee(
 		Value:            big.NewInt(0),
 		Data:             nil,
 		SkipNonceChecks:  false,
-		SkipFromEOACheck: false,
 	}
 
 	cfg, err := suite.App.EvmKeeper.EVMConfig(suite.Ctx, suite.App.EvmKeeper.ChainID(), common.Hash{})
