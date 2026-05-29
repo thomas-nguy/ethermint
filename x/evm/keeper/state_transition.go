@@ -372,17 +372,6 @@ func (k *Keeper) ApplyMessageWithConfig(
 	sender := msg.From
 	tracer := cfg.GetTracer()
 
-	if cfg.DebugTrace {
-		feeAmt := debugTraceFeeAmount(msg, cfg.BaseFee)
-		if feeAmt.Sign() > 0 {
-			fees := sdk.Coins{{Denom: cfg.Params.EvmDenom, Amount: sdkmath.NewIntFromBigInt(feeAmt)}}
-			if err := k.DeductTxCostsFromUserBalance(ctx, fees, msg.From); err != nil {
-				return nil, err
-			}
-		}
-		tracingStateDB.SetNonce(sender, stateDB.GetNonce(sender)+1, tracing.NonceChangeEoACall)
-	}
-
 	if tracer != nil {
 		if tracer.OnGasChange != nil {
 			tracer.OnGasChange(0, msg.GasLimit, tracing.GasChangeTxInitialBalance)
@@ -399,6 +388,15 @@ func (k *Keeper) ApplyMessageWithConfig(
 				}),
 				msg.From,
 			)
+		}
+
+		if cfg.DebugTrace {
+			feeAmt := debugTraceFeeAmount(msg, cfg.BaseFee)
+			stateDB.SubBalance(sender, uint256.MustFromBig(feeAmt), tracing.BalanceDecreaseGasBuy)
+			if err := stateDB.Error(); err != nil {
+				return nil, err
+			}
+			tracingStateDB.SetNonce(sender, stateDB.GetNonce(sender)+1, tracing.NonceChangeEoACall)
 		}
 
 		defer func() {
@@ -575,12 +573,8 @@ func (k *Keeper) ApplyMessageWithConfig(
 	leftoverGas = msg.GasLimit - gasUsed
 
 	if cfg.DebugTrace {
-		debugGasPrice := debugTraceGasPrice(msg, cfg.BaseFee)
-		if err := k.RefundGasWithPrice(ctx, msg, leftoverGas, debugGasPrice, cfg.Params.EvmDenom); err != nil {
-			return nil, errorsmod.Wrapf(err, "failed to refund leftover gas to sender %s", msg.From)
-		}
-		if tracer != nil && tracer.OnGasChange != nil {
-			tracer.OnGasChange(leftoverGas, 0, tracing.GasChangeTxLeftOverReturned)
+		if tracer != nil {
+			stateDB.AddBalance(sender, uint256.NewInt(1).Mul(uint256.MustFromBig(debugTraceGasPrice(msg, cfg.BaseFee)), uint256.NewInt(leftoverGas)), tracing.BalanceIncreaseGasReturn)
 		}
 	}
 
