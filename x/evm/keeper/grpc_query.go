@@ -911,7 +911,7 @@ func (k Keeper) SimulateV1(c context.Context, req *types.SimulateV1Request) (*ty
 		}
 		return &types.SimulateV1Response{
 			ErrorMessage: err.Error(),
-			ErrorCode:    int32(errCode),
+			ErrorCode:    int32(errCode), //nolint:gosec // G115: error codes are small constants, overflow not possible
 		}, nil
 	}
 
