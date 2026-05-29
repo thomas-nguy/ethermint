@@ -911,7 +911,7 @@ func (k Keeper) SimulateV1(c context.Context, req *types.SimulateV1Request) (*ty
 		}
 		return &types.SimulateV1Response{
 			ErrorMessage: err.Error(),
-			ErrorCode:    int32(errCode), //nolint:gosec // errCode is an HTTP-style error code, bounded well within int32 range
+			ErrorCode:    int32(errCode),
 		}, nil
 	}
 

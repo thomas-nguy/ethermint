@@ -574,7 +574,11 @@ func (k *Keeper) ApplyMessageWithConfig(
 
 	if cfg.DebugTrace {
 		if tracer != nil {
-			stateDB.AddBalance(sender, uint256.NewInt(1).Mul(uint256.MustFromBig(debugTraceGasPrice(msg, cfg.BaseFee)), uint256.NewInt(leftoverGas)), tracing.BalanceIncreaseGasReturn)
+			refund := uint256.NewInt(1).Mul(
+				uint256.MustFromBig(debugTraceGasPrice(msg, cfg.BaseFee)),
+				uint256.NewInt(leftoverGas),
+			)
+			stateDB.AddBalance(sender, refund, tracing.BalanceIncreaseGasReturn)
 		}
 	}
 
