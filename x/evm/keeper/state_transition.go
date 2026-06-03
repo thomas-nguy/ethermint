@@ -373,6 +373,12 @@ func (k *Keeper) ApplyMessageWithConfig(
 	tracer := cfg.GetTracer()
 
 	if tracer != nil {
+		defer func() {
+			if tracer.OnTxEnd != nil {
+				tracer.OnTxEnd(&ethtypes.Receipt{GasUsed: gasUsed}, err)
+			}
+		}()
+
 		if tracer.OnGasChange != nil {
 			tracer.OnGasChange(0, msg.GasLimit, tracing.GasChangeTxInitialBalance)
 		}
@@ -399,11 +405,6 @@ func (k *Keeper) ApplyMessageWithConfig(
 			tracingStateDB.SetNonce(sender, stateDB.GetNonce(sender)+1, tracing.NonceChangeEoACall)
 		}
 
-		defer func() {
-			if tracer.OnTxEnd != nil {
-				tracer.OnTxEnd(&ethtypes.Receipt{GasUsed: gasUsed}, err)
-			}
-		}()
 	}
 
 	rules := cfg.Rules
