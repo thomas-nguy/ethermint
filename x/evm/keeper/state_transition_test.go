@@ -10,7 +10,6 @@ import (
 	"time"
 
 	sdkmath "cosmossdk.io/math"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	cmtcrypto "github.com/cometbft/cometbft/crypto"
 	"github.com/cometbft/cometbft/crypto/tmhash"
 	cmtrand "github.com/cometbft/cometbft/libs/rand"
@@ -18,6 +17,7 @@ import (
 	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/cometbft/cometbft/version"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -682,16 +682,16 @@ func (suite *StateTransitionTestSuite) TestApplyMessageWithConfig_DebugTraceFee(
 
 	to := common.BigToAddress(big.NewInt(1))
 	msg := &core.Message{
-		From:             suite.Address,
-		To:               &to,
-		Nonce:            suite.App.EvmKeeper.GetNonce(suite.Ctx, suite.Address),
-		GasLimit:         gasLimit,
-		GasPrice:         gasFeeCap, // fee cap, not effective price
-		GasFeeCap:        gasFeeCap,
-		GasTipCap:        gasTipCap,
-		Value:            big.NewInt(0),
-		Data:             nil,
-		SkipNonceChecks:  false,
+		From:            suite.Address,
+		To:              &to,
+		Nonce:           suite.App.EvmKeeper.GetNonce(suite.Ctx, suite.Address),
+		GasLimit:        gasLimit,
+		GasPrice:        gasFeeCap, // fee cap, not effective price
+		GasFeeCap:       gasFeeCap,
+		GasTipCap:       gasTipCap,
+		Value:           big.NewInt(0),
+		Data:            nil,
+		SkipNonceChecks: false,
 	}
 
 	cfg, err := suite.App.EvmKeeper.EVMConfig(suite.Ctx, suite.App.EvmKeeper.ChainID(), common.Hash{})
@@ -700,12 +700,24 @@ func (suite *StateTransitionTestSuite) TestApplyMessageWithConfig_DebugTraceFee(
 	cfg.DebugTrace = true
 	cfg.TxConfig = suite.App.EvmKeeper.TxConfig(suite.Ctx, common.Hash{})
 
+	// The up-front gas-buy during debug tracing must charge the effective fee,
+	// min(gasTipCap + baseFee, gasFeeCap) * gasLimit, rather than the fee cap * gas.
+	// Funding the sender with exactly the effective fee proves both bounds: the
+	// charge cannot exceed it (the call would fail on insufficient balance, which
+	// is what charging fee cap * gas would do here), and funding one unit less
+	// proves the charge is not below it either.
 	suite.Require().NoError(
 		suite.App.EvmKeeper.SetBalance(suite.Ctx, suite.Address, *uint256.MustFromBig(effectiveFee), types.DefaultEVMDenom),
 	)
-
 	_, err = suite.App.EvmKeeper.ApplyMessageWithConfig(suite.Ctx, msg, cfg, false)
 	suite.Require().NoError(err, "debug trace must deduct effective fee, not fee cap * gas")
+
+	oneLess := new(big.Int).Sub(effectiveFee, big.NewInt(1))
+	suite.Require().NoError(
+		suite.App.EvmKeeper.SetBalance(suite.Ctx, suite.Address, *uint256.MustFromBig(oneLess), types.DefaultEVMDenom),
+	)
+	_, err = suite.App.EvmKeeper.ApplyMessageWithConfig(suite.Ctx, msg, cfg, false)
+	suite.Require().Error(err, "debug trace must charge the full effective fee")
 }
 
 func (suite *StateTransitionTestSuite) TestApplyMessageWithConfig() {
