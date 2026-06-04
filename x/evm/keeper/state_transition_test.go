@@ -697,8 +697,21 @@ func (suite *StateTransitionTestSuite) TestApplyMessageWithConfig_DebugTraceFee(
 	cfg, err := suite.App.EvmKeeper.EVMConfig(suite.Ctx, suite.App.EvmKeeper.ChainID(), common.Hash{})
 	suite.Require().NoError(err)
 	cfg.BaseFee = baseFee
-	cfg.DebugTrace = true
 	cfg.TxConfig = suite.App.EvmKeeper.TxConfig(suite.Ctx, common.Hash{})
+
+	var txStarts, txEnds, gasChanges int
+	cfg.Tracer = &tracing.Hooks{
+		OnTxStart: func(*tracing.VMContext, *ethtypes.Transaction, common.Address) {
+			txStarts++
+		},
+		OnTxEnd: func(*ethtypes.Receipt, error) {
+			txEnds++
+		},
+		OnGasChange: func(_, _ uint64, _ tracing.GasChangeReason) {
+			gasChanges++
+		},
+	}
+	cfg.DebugTrace = true
 
 	// The up-front gas-buy during debug tracing must charge the effective fee,
 	// min(gasTipCap + baseFee, gasFeeCap) * gasLimit, rather than the fee cap * gas.
@@ -711,6 +724,10 @@ func (suite *StateTransitionTestSuite) TestApplyMessageWithConfig_DebugTraceFee(
 	)
 	_, err = suite.App.EvmKeeper.ApplyMessageWithConfig(suite.Ctx, msg, cfg, false)
 	suite.Require().NoError(err, "debug trace must deduct effective fee, not fee cap * gas")
+	suite.Require().Equal(1, txStarts, "tracer must observe tx start")
+	suite.Require().Equal(1, txEnds, "tracer must observe tx end")
+	suite.Require().Greater(gasChanges, 1, "tracer must observe gas changes through execution")
+	gasChangesAfterSuccess := gasChanges
 
 	oneLess := new(big.Int).Sub(effectiveFee, big.NewInt(1))
 	suite.Require().NoError(
@@ -718,6 +735,13 @@ func (suite *StateTransitionTestSuite) TestApplyMessageWithConfig_DebugTraceFee(
 	)
 	_, err = suite.App.EvmKeeper.ApplyMessageWithConfig(suite.Ctx, msg, cfg, false)
 	suite.Require().Error(err, "debug trace must charge the full effective fee")
+	suite.Require().Equal(2, txStarts, "tracer must run on insufficient-balance debug trace attempt")
+	suite.Require().Equal(2, txEnds, "tracer must end tx even when up-front gas buy fails")
+	suite.Require().Equal(
+		gasChangesAfterSuccess+1,
+		gasChanges,
+		"failed attempt should only record the initial gas snapshot before the up-front gas buy fails",
+	)
 }
 
 func (suite *StateTransitionTestSuite) TestApplyMessageWithConfig() {
