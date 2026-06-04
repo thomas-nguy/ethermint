@@ -404,7 +404,6 @@ func (k *Keeper) ApplyMessageWithConfig(
 			}
 			tracingStateDB.SetNonce(sender, stateDB.GetNonce(sender)+1, tracing.NonceChangeEoACall)
 		}
-
 	}
 
 	rules := cfg.Rules
