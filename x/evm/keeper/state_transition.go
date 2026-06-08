@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"sort"
 
-
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	errorsmod "cosmossdk.io/errors"
