@@ -49,6 +49,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ### Bug Fixes
 
+* (rpc) [#1039](https://github.com/crypto-org-chain/ethermint/pull/1039) fix(rpc): prevent nil-pointer panic in `eth_getLogs`/`eth_getFilterLogs` when a zero block hash is supplied.
 * (evm) [#1029](https://github.com/crypto-org-chain/ethermint/pull/1029) fix(evm): allow access list creation without requiring gas when no authorization list is provided.
 * (rpc) [#1030](https://github.com/crypto-org-chain/ethermint/pull/1030) fix(rpc): align eth_getStorageAt storage key parsing.
 * (evm) [#1023](https://github.com/crypto-org-chain/ethermint/pull/1023) fix(evm): skip rewriting eip155ChainID when unchanged.
