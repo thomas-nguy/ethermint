@@ -50,6 +50,8 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ### Bug Fixes
 
 * (deps) [#1043](https://github.com/crypto-org-chain/ethermint/pull/1043) ffix(deps): bump Go to 1.25.11 to resolve stdlib vulnerabilities
+* (rpc) [#1039](https://github.com/crypto-org-chain/ethermint/pull/1039) fix(rpc): prevent nil-pointer panic in `eth_getLogs`/`eth_getFilterLogs` when a zero block hash is supplied.
+* (server) [#1038](https://github.com/crypto-org-chain/ethermint/pull/1038) fix(server): support tls config on the JSON-RPC HTTP server.
 * (evm) [#1029](https://github.com/crypto-org-chain/ethermint/pull/1029) fix(evm): allow access list creation without requiring gas when no authorization list is provided.
 * (rpc) [#1030](https://github.com/crypto-org-chain/ethermint/pull/1030) fix(rpc): align eth_getStorageAt storage key parsing.
 * (evm) [#1023](https://github.com/crypto-org-chain/ethermint/pull/1023) fix(evm): skip rewriting eip155ChainID when unchanged.
