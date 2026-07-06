@@ -49,7 +49,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ### Bug Fixes
 
-* (deps) [#1037](https://github.com/crypto-org-chain/ethermint/pull/1037) fix(deps): bump Go toolchain to 1.25.11 to resolve `net/textproto` (GO-2026-5039) and `crypto/x509` (GO-2026-5037) standard-library vulnerabilities.
+* (deps) [#1043](https://github.com/crypto-org-chain/ethermint/pull/1043) ffix(deps): bump Go to 1.25.11 to resolve stdlib vulnerabilities
 * (evm) [#1029](https://github.com/crypto-org-chain/ethermint/pull/1029) fix(evm): allow access list creation without requiring gas when no authorization list is provided.
 * (rpc) [#1030](https://github.com/crypto-org-chain/ethermint/pull/1030) fix(rpc): align eth_getStorageAt storage key parsing.
 * (evm) [#1023](https://github.com/crypto-org-chain/ethermint/pull/1023) fix(evm): skip rewriting eip155ChainID when unchanged.
