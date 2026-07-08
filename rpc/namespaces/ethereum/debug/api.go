@@ -132,6 +132,12 @@ func (a *API) GetRawReceipts(blockNrOrHash rpctypes.BlockNumberOrHash) ([]hexuti
 	return a.backend.GetRawReceipts(blockNrOrHash)
 }
 
+// GetRawBlock retrieves the RLP-encoded block of a single block.
+func (a *API) GetRawBlock(blockNrOrHash rpctypes.BlockNumberOrHash) (hexutil.Bytes, error) {
+	a.logger.Debug("debug_getRawBlock", "block number or hash", blockNrOrHash)
+	return a.backend.GetRawBlock(blockNrOrHash)
+}
+
 // GetRawHeader retrieves the RLP encoding of a single header of a block.
 func (a *API) GetRawHeader(blockNrOrHash rpctypes.BlockNumberOrHash) (hexutil.Bytes, error) {
 	a.logger.Debug("debug_getRawHeader", "block number or hash", blockNrOrHash)
