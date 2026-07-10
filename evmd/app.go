@@ -67,7 +67,6 @@ import (
 	crisistypes "github.com/cosmos/cosmos-sdk/contrib/x/crisis/types"
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	mempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
 	"github.com/cosmos/cosmos-sdk/version"
@@ -133,7 +132,6 @@ import (
 
 	"github.com/evmos/ethermint/client/docs"
 
-	"github.com/evmos/ethermint/appmempool"
 	"github.com/evmos/ethermint/encoding"
 	"github.com/evmos/ethermint/ethereum/eip712"
 	"github.com/evmos/ethermint/evmd/ante"
@@ -267,23 +265,7 @@ func NewEthermintApp(
 	eip712.SetEncodingConfig(encodingConfig)
 
 	// NOTE we use custom transaction decoder that supports the sdk.Tx interface instead of sdk.StdTx
-	// Setup Mempool and Proposal Handlers
-	baseAppOptions = append(baseAppOptions, func(app *baseapp.BaseApp) {
-		maxTxs := cast.ToInt(appOpts.Get(server.FlagMempoolMaxTxs))
-		if maxTxs <= 0 {
-			maxTxs = srvconfig.DefaultMaxTxs
-		}
-		mempool := mempool.NewPriorityMempool(mempool.PriorityNonceMempoolConfig[int64]{
-			TxPriority:      mempool.NewDefaultTxPriority(),
-			SignerExtractor: NewEthSignerExtractionAdapter(mempool.NewDefaultSignerExtractionAdapter()),
-			MaxTx:           maxTxs,
-		})
-		handler := baseapp.NewDefaultProposalHandler(mempool, app)
-
-		app.SetMempool(mempool)
-		app.SetPrepareProposal(handler.PrepareProposalHandler())
-		app.SetProcessProposal(handler.ProcessProposalHandler())
-	})
+	baseAppOptions = append(baseAppOptions, setupMempoolAndProposalHandlers(appOpts))
 	bApp := baseapp.NewBaseApp(
 		appName,
 		logger,
@@ -1068,9 +1050,6 @@ func (app *EthermintApp) GetStoreKey(name string) storetypes.StoreKey {
 func (app *EthermintApp) RegisterPendingTxListener(listener ante.PendingTxListener) {
 	app.pendingTxListeners = append(app.pendingTxListeners, listener)
 }
-
-// MempoolClient returns nil; EthermintApp has no custom app mempool client.
-func (app *EthermintApp) MempoolClient() appmempool.MempoolClient { return nil }
 
 // RegisterSwaggerAPI registers swagger route with API Server
 func RegisterSwaggerAPI(_ client.Context, rtr *mux.Router) {
