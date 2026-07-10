@@ -77,6 +77,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ### Features
 
+* (rpc) [#1048](https://github.com/crypto-org-chain/ethermint/pull/1048) feat(rpc): add `debug_getRawTransaction`
 * (rpc) [#1046](https://github.com/crypto-org-chain/ethermint/pull/1046) feat(rpc): add `debug_getRawBlock`
 * (rpc) [#1047](https://github.com/crypto-org-chain/ethermint/pull/1047) feat(rpc): add `debug_getRawHeader`
 * (rpc) [#1044](https://github.com/crypto-org-chain/ethermint/pull/1044) feat(rpc): add `eth_getStorageValues`
