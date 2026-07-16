@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
@@ -392,9 +393,6 @@ func (suite *AnteTestSuite) TestEthGasConsumeDecorator() {
 	tx2.From = addr.Bytes()
 	tx2Priority := int64(1)
 
-	tx3GasLimit := blockGasLimit + uint64(1)
-	tx3 := evmtypes.NewTxContract(suite.app.EvmKeeper.ChainID(), 1, big.NewInt(10), tx3GasLimit, gasPrice, nil, nil, nil, &ethtypes.AccessList{{Address: addr, StorageKeys: nil}})
-
 	dynamicFeeTx := evmtypes.NewTxContract(suite.app.EvmKeeper.ChainID(), 1, big.NewInt(10), tx2GasLimit,
 		nil, // gasPrice
 		new(big.Int).Add(baseFee, big.NewInt(evmtypes.DefaultPriorityReduction.Int64()*2)), // gasFeeCap
@@ -403,8 +401,23 @@ func (suite *AnteTestSuite) TestEthGasConsumeDecorator() {
 	dynamicFeeTx.From = addr.Bytes()
 	dynamicFeeTxPriority := int64(1)
 
+	// Each message stays at or below the EIP-7825 MaxTxGas cap, but their sum exceeds the
+	// block gas limit, so this still exercises the block-gas-limit check rather than the cap check.
+	var overBlockGasLimitMsgs []sdk.Msg
+	var overBlockGasLimitSum uint64
+	for nonce := uint64(1); overBlockGasLimitSum <= blockGasLimit; nonce++ {
+		msg := evmtypes.NewTxContract(suite.app.EvmKeeper.ChainID(), nonce, big.NewInt(10), params.MaxTxGas, gasPrice, nil, nil, nil, &ethtypes.AccessList{{Address: addr, StorageKeys: nil}})
+		msg.From = addr.Bytes()
+		overBlockGasLimitMsgs = append(overBlockGasLimitMsgs, msg)
+		overBlockGasLimitSum += params.MaxTxGas
+	}
+
 	maxGasLimitTx := evmtypes.NewTxContract(suite.app.EvmKeeper.ChainID(), 1, big.NewInt(10), math.MaxUint64, gasPrice, nil, nil, nil, &ethtypes.AccessList{{Address: addr, StorageKeys: nil}})
 	maxGasLimitTx.From = addr.Bytes()
+
+	overMaxTxGasLimit := params.MaxTxGas + 1
+	overMaxTxGasTx := evmtypes.NewTxContract(suite.app.EvmKeeper.ChainID(), 1, big.NewInt(10), overMaxTxGasLimit, gasPrice, nil, nil, nil, &ethtypes.AccessList{{Address: addr, StorageKeys: nil}})
+	overMaxTxGasTx.From = addr.Bytes()
 
 	var vmdb *statedb.StateDB
 
@@ -417,8 +430,9 @@ func (suite *AnteTestSuite) TestEthGasConsumeDecorator() {
 		expPanic    bool
 		expPriority int64
 		err         error
+		errIs       error
 	}{
-		{"invalid transaction type", &invalidTx{}, math.MaxUint64, func() {}, false, false, 0, nil},
+		{"invalid transaction type", &invalidTx{}, math.MaxUint64, func() {}, false, false, 0, nil, nil},
 		{
 			"sender not found",
 			evmtypes.NewTxContract(suite.app.EvmKeeper.ChainID(), 1, big.NewInt(10), 1000, big.NewInt(1), nil, nil, nil, nil),
@@ -426,6 +440,7 @@ func (suite *AnteTestSuite) TestEthGasConsumeDecorator() {
 			func() {},
 			false, false,
 			0,
+			nil,
 			nil,
 		},
 		{
@@ -436,15 +451,17 @@ func (suite *AnteTestSuite) TestEthGasConsumeDecorator() {
 			false, false,
 			0,
 			nil,
+			nil,
 		},
 		{
-			"gas limit above block gas limit",
-			tx3,
+			"gas limit above EIP-7825 MaxTxGas cap",
+			overMaxTxGasTx,
 			math.MaxUint64,
 			func() {},
 			false, false,
 			0,
-			nil,
+			fmt.Errorf("cap: %d, tx: %d", params.MaxTxGas, overMaxTxGasLimit),
+			core.ErrGasLimitTooHigh,
 		},
 		{
 			"not enough balance for fees",
@@ -453,6 +470,7 @@ func (suite *AnteTestSuite) TestEthGasConsumeDecorator() {
 			func() {},
 			false, false,
 			0,
+			nil,
 			nil,
 		},
 		{
@@ -464,6 +482,7 @@ func (suite *AnteTestSuite) TestEthGasConsumeDecorator() {
 			},
 			false, true,
 			0,
+			nil,
 			nil,
 		},
 		{
@@ -477,9 +496,26 @@ func (suite *AnteTestSuite) TestEthGasConsumeDecorator() {
 			false, true,
 			0,
 			nil,
+			nil,
 		},
 		{
-			"gas limit overflow",
+			"gas limit above block gas limit",
+			&multiTx{Msgs: overBlockGasLimitMsgs},
+			math.MaxUint64,
+			func() {
+				// Fund enough to cover fees for every message but the last, which trips the
+				// block-gas-limit check before its own fee gets deducted.
+				perMsgCost := uint256.NewInt(0).Mul(uint256.NewInt(params.MaxTxGas), uint256.MustFromBig(gasPrice))
+				totalCost := uint256.NewInt(0).Mul(perMsgCost, uint256.NewInt(uint64(len(overBlockGasLimitMsgs))))
+				vmdb.AddBalance(addr, totalCost, tracing.BalanceChangeTransfer)
+			},
+			false, false,
+			0,
+			fmt.Errorf("tx gas (%d) exceeds block gas limit (%d)", overBlockGasLimitSum, blockGasLimit),
+			nil,
+		},
+		{
+			"first message exceeds MaxTxGas cap in multi-msg tx",
 			&multiTx{
 				Msgs: []sdk.Msg{maxGasLimitTx, tx2},
 			},
@@ -493,7 +529,8 @@ func (suite *AnteTestSuite) TestEthGasConsumeDecorator() {
 			},
 			false, false,
 			0,
-			fmt.Errorf("tx gas (%d) exceeds block gas limit (%d)", maxGasLimitTx.GetGas(), blockGasLimit),
+			fmt.Errorf("cap: %d, tx: %d", params.MaxTxGas, maxGasLimitTx.GetGas()),
+			core.ErrGasLimitTooHigh,
 		},
 		{
 			"success - legacy tx",
@@ -505,6 +542,7 @@ func (suite *AnteTestSuite) TestEthGasConsumeDecorator() {
 			},
 			true, false,
 			tx2Priority,
+			nil,
 			nil,
 		},
 		{
@@ -518,6 +556,7 @@ func (suite *AnteTestSuite) TestEthGasConsumeDecorator() {
 			true, false,
 			dynamicFeeTxPriority,
 			nil,
+			nil,
 		},
 		{
 			"success - gas limit on gasMeter is set on ReCheckTx mode",
@@ -530,6 +569,19 @@ func (suite *AnteTestSuite) TestEthGasConsumeDecorator() {
 			true, false,
 			1,
 			nil,
+			nil,
+		},
+		{
+			"gas limit above EIP-7825 MaxTxGas cap on ReCheckTx",
+			overMaxTxGasTx,
+			math.MaxUint64,
+			func() {
+				suite.ctx = suite.ctx.WithIsReCheckTx(true)
+			},
+			false, false,
+			0,
+			fmt.Errorf("cap: %d, tx: %d", params.MaxTxGas, overMaxTxGasLimit),
+			core.ErrGasLimitTooHigh,
 		},
 	}
 
@@ -561,6 +613,9 @@ func (suite *AnteTestSuite) TestEthGasConsumeDecorator() {
 					suite.Require().ErrorContains(err, tc.err.Error())
 				} else {
 					suite.Require().Error(err)
+				}
+				if tc.errIs != nil {
+					suite.Require().ErrorIs(err, tc.errIs)
 				}
 			}
 			suite.Require().Equal(tc.gasLimit, ctx.GasMeter().Limit())
