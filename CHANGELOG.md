@@ -76,6 +76,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 * (rpc) [#963](https://github.com/crypto-org-chain/ethermint/pull/963) fix(rpc): align eth_feeHistory response with execution-apis spec.
 * (rpc) [#962](https://github.com/crypto-org-chain/ethermint/pull/962) fix(rpc): align eth_createAccessList response with execution-apis spec — hex-encode gasUsed and propagate VM errors in the Error field.
 * (test) [#972](https://github.com/crypto-org-chain/ethermint/pull/972) test(integration): fix flaky test_tracecall_diff by replacing derive_random_account with fixed unique indices.
+* (evm) [#1090](https://github.com/crypto-org-chain/ethermint/pull/1090) fix(evm): prevent panic in EthSignerExtractionAdapter
 
 ### Features
 
