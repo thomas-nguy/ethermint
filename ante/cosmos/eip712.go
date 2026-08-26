@@ -194,6 +194,10 @@ func VerifySignature(
 			return errorsmod.Wrap(errortypes.ErrNoSignatures, "tx doesn't contain any msgs to verify signature")
 		}
 
+		if tx.GetTimeoutHeight() != 0 {
+			return errorsmod.Wrap(errortypes.ErrInvalidRequest, "legacy EIP-712 signing does not commit timeout_height, so it must be 0")
+		}
+
 		txBytes := legacytx.StdSignBytes( //nolint:staticcheck
 			signerData.ChainID,
 			signerData.AccountNumber,
