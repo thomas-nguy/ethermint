@@ -49,6 +49,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ### Bug Fixes
 
+* (eip712) [#1074](https://github.com/crypto-org-chain/ethermint/pull/1074) fix(eip712): reject nonzero timeout_height on EIP-712 signing paths.
 * (rpc) [#1063](https://github.com/crypto-org-chain/ethermint/pull/1063) fix(rpc): exclude preceding Cosmos transaction gas from Ethereum receipt `cumulativeGasUsed`.
 * (evm) [#1056](https://github.com/crypto-org-chain/ethermint/pull/1056) enforce EIP-7825 per-transaction gas limit cap (`MaxTxGas`) once Osaka activates.
 * (deps) [#1043](https://github.com/crypto-org-chain/ethermint/pull/1043) ffix(deps): bump Go to 1.25.11 to resolve stdlib vulnerabilities
@@ -80,6 +81,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ### Features
 
+* (ante) [#1062](https://github.com/crypto-org-chain/ethermint/pull/1062) feat(ante): add hash-keyed sender cache to VerifyEthSig
 * (rpc) [#1048](https://github.com/crypto-org-chain/ethermint/pull/1048) feat(rpc): add `debug_getRawTransaction`
 * (rpc) [#1046](https://github.com/crypto-org-chain/ethermint/pull/1046) feat(rpc): add `debug_getRawBlock`
 * (rpc) [#1047](https://github.com/crypto-org-chain/ethermint/pull/1047) feat(rpc): add `debug_getRawHeader`

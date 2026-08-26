@@ -99,6 +99,10 @@ func legacyDecodeAminoSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
 		return apitypes.TypedData{}, err
 	}
 
+	if aminoDoc.TimeoutHeight != 0 {
+		return apitypes.TypedData{}, errors.New("legacy EIP-712 signing does not commit timeout_height, so it must be 0")
+	}
+
 	// Use first message for fee payer and type inference
 	msg := msgs[0]
 
@@ -154,13 +158,16 @@ func legacyDecodeProtobufSignDoc(signDocBytes []byte) (apitypes.TypedData, error
 		return apitypes.TypedData{}, err
 	}
 
+	if body.TimeoutHeight != 0 {
+		return apitypes.TypedData{}, errors.New("legacy EIP-712 signing does not commit timeout_height, so it must be 0")
+	}
+
 	// Until support for these fields is added, throw an error at their presence
-	if body.TimeoutHeight != 0 ||
-		body.GetTimeoutTimestamp() != nil ||
+	if body.GetTimeoutTimestamp() != nil ||
 		len(body.ExtensionOptions) != 0 ||
 		len(body.NonCriticalExtensionOptions) != 0 {
 		return apitypes.TypedData{}, errors.New(
-			"body contains unsupported fields: TimeoutHeight, TimeoutTimestamp, ExtensionOptions, or NonCriticalExtensionOptions",
+			"body contains unsupported fields: TimeoutTimestamp, ExtensionOptions, or NonCriticalExtensionOptions",
 		)
 	}
 
