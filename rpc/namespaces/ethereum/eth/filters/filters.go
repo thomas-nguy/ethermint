@@ -23,6 +23,7 @@ import (
 
 	"github.com/evmos/ethermint/rpc/backend"
 	"github.com/evmos/ethermint/rpc/types"
+	evmtypes "github.com/evmos/ethermint/x/evm/types"
 
 	"cosmossdk.io/log/v2"
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -195,23 +196,21 @@ func (f *Filter) Logs(ctx context.Context, logLimit int, blockLimit int64) ([]*e
 			return logs, err
 		}
 
-		if !bloomMatches(bloom, f.bloomFilters) {
+		filtered, err := f.blockLogs(blockRes, bloom, 0)
+		if err != nil {
+			return logs, errors.Wrapf(err, "failed to fetch block by number %d", height)
+		}
+		if len(filtered) == 0 {
 			continue
 		}
 
-		// block results don't carry the block time, only fetch the header when the block may contain matching logs.
+		// block results don't carry the block time, only fetch the header when the block has matching logs.
 		// the header is only needed for the logs' block time, don't fail the logs without it
-		var blockTime uint64
 		resHeader, err := f.backend.TendermintHeaderByNumber(types.BlockNumber(height))
 		if err != nil || resHeader == nil || resHeader.Header == nil {
 			f.logger.Debug("header not found, logs block time left empty", "height", height, "error", err)
 		} else {
-			blockTime = backend.SafeBlockTime(resHeader.Header.Time.Unix())
-		}
-
-		filtered, err := f.blockLogs(blockRes, bloom, blockTime)
-		if err != nil {
-			return logs, errors.Wrapf(err, "failed to fetch block by number %d", height)
+			evmtypes.SetLogsBlockTimestamp(filtered, backend.SafeBlockTime(resHeader.Header.Time.Unix()))
 		}
 
 		// check logs limit

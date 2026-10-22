@@ -48,15 +48,14 @@ func (b *Backend) GetLogsByHeight(height *int64) ([][]*ethtypes.Log, error) {
 		return nil, err
 	}
 	// height could be nil (latest), so fetch the header at the height of the results.
+	// the header is only needed for the logs' block time, don't fail the logs without it
+	var blockTime uint64
 	resHeader, err := b.TendermintHeaderByNumber(rpctypes.BlockNumber(blockRes.Height))
-	if err != nil {
-		return nil, err
-	}
-	if resHeader == nil || resHeader.Header == nil {
-		return nil, errors.Errorf("header not found for height %d", blockRes.Height)
+	if err == nil && resHeader != nil && resHeader.Header != nil {
+		blockTime = SafeBlockTime(resHeader.Header.Time.Unix())
 	}
 
-	return GetLogsFromBlockResults(blockRes, SafeBlockTime(resHeader.Header.Time.Unix()))
+	return GetLogsFromBlockResults(blockRes, blockTime)
 }
 
 // BloomStatus returns the BloomBitsBlocks and the number of processed sections maintained
