@@ -311,7 +311,6 @@ func computeGasUsed(blockRes *tmrpctypes.ResultBlockResults) (uint64, error) {
 }
 
 // GetLogsFromBlockResults returns the list of event logs from the tendermint block result response,
-// blockTime is the unix timestamp of the block, as block results don't carry it.
 func GetLogsFromBlockResults(blockRes *tmrpctypes.ResultBlockResults, blockTime uint64) ([][]*ethtypes.Log, error) {
 	height, err := ethermint.SafeUint64(blockRes.Height)
 	if err != nil {
