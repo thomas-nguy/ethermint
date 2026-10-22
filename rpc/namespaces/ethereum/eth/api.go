@@ -479,6 +479,10 @@ func (e *PublicAPI) GetTransactionLogs(txHash common.Hash) ([]*ethtypes.Log, err
 		e.logger.Debug("block result not found", "number", res.Height, "error", err.Error())
 		return nil, nil
 	}
+	if int(res.TxIndex) >= len(resBlockResult.TxsResults) {
+		e.logger.Debug("tx index out of range of the block results", "hash", hexTx, "index", res.TxIndex)
+		return nil, nil
+	}
 	// the header is only needed for the logs' block time, don't fail the logs without it
 	var blockTime uint64
 	resHeader, err := e.backend.TendermintHeaderByNumber(rpctypes.BlockNumber(res.Height))

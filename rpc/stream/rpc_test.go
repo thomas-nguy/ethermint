@@ -110,6 +110,19 @@ func TestBlockTimeTracker(t *testing.T) {
 		require.Len(t, tracker.flush(), 3)
 		require.Empty(t, tracker.pending)
 	})
+
+	t.Run("logs after flush are not held back and use known block times", func(t *testing.T) {
+		tracker := newBlockTimeTracker()
+		tracker.addBlock(10, 100)
+		tracker.flush()
+		ready := tracker.addLogs(10, newLogs(1))
+		require.Len(t, ready, 1)
+		requireTimestamps(t, ready, 100)
+		ready = tracker.addLogs(11, newLogs(1))
+		require.Len(t, ready, 1)
+		requireTimestamps(t, ready, 0)
+		require.Empty(t, tracker.pending)
+	})
 }
 
 func TestEvmTxHashFromEventData(t *testing.T) {

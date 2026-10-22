@@ -236,10 +236,6 @@ func (s *RPCStream) start(
 				continue
 			}
 
-			if chBlocks == nil {
-				s.logStream.Add(txLogs...)
-				continue
-			}
 			s.logStream.Add(blockTimes.addLogs(dataTx.Height, txLogs)...)
 		}
 
@@ -265,6 +261,8 @@ type blockTimeTracker struct {
 	pending map[int64][]*ethtypes.Log
 	// latest is the highest block height seen
 	latest int64
+	// closed is set once no more block events will come, logs are not held back anymore
+	closed bool
 }
 
 func newBlockTimeTracker() *blockTimeTracker {
@@ -314,16 +312,18 @@ func (t *blockTimeTracker) addLogs(height int64, logs []*ethtypes.Log) []*ethtyp
 		evmtypes.SetLogsBlockTimestamp(logs, blockTime)
 		return logs
 	}
-	if height <= t.latest {
-		// the block time is pruned or the block event is missed, it won't be known anymore.
+	if height <= t.latest || t.closed {
+		// the block time is pruned, the block event is missed or the block events are closed,
+		// it won't be known anymore.
 		return logs
 	}
 	t.pending[height] = append(t.pending[height], logs...)
 	return nil
 }
 
-// flush returns all the pending logs, in block order.
+// flush returns all the pending logs, in block order, and stops holding back the logs added later.
 func (t *blockTimeTracker) flush() []*ethtypes.Log {
+	t.closed = true
 	heights := make([]int64, 0, len(t.pending))
 	for h := range t.pending {
 		heights = append(heights, h)

@@ -199,16 +199,17 @@ func (f *Filter) Logs(ctx context.Context, logLimit int, blockLimit int64) ([]*e
 			continue
 		}
 
-		// block results don't carry the block time, only fetch the header when the block may contain matching logs
+		// block results don't carry the block time, only fetch the header when the block may contain matching logs.
+		// the header is only needed for the logs' block time, don't fail the logs without it
+		var blockTime uint64
 		resHeader, err := f.backend.TendermintHeaderByNumber(types.BlockNumber(height))
-		if err != nil {
-			return logs, errors.Wrapf(err, "failed to fetch header for height %d", height)
-		}
-		if resHeader == nil || resHeader.Header == nil {
-			return logs, fmt.Errorf("header not found for height %d", height)
+		if err != nil || resHeader == nil || resHeader.Header == nil {
+			f.logger.Debug("header not found, logs block time left empty", "height", height, "error", err)
+		} else {
+			blockTime = backend.SafeBlockTime(resHeader.Header.Time.Unix())
 		}
 
-		filtered, err := f.blockLogs(blockRes, bloom, backend.SafeBlockTime(resHeader.Header.Time.Unix()))
+		filtered, err := f.blockLogs(blockRes, bloom, blockTime)
 		if err != nil {
 			return logs, errors.Wrapf(err, "failed to fetch block by number %d", height)
 		}
