@@ -479,6 +479,14 @@ func (e *PublicAPI) GetTransactionLogs(txHash common.Hash) ([]*ethtypes.Log, err
 		e.logger.Debug("block result not found", "number", res.Height, "error", err.Error())
 		return nil, nil
 	}
+	// the header is only needed for the logs' block time, don't fail the logs without it
+	var blockTime uint64
+	resHeader, err := e.backend.TendermintHeaderByNumber(rpctypes.BlockNumber(res.Height))
+	if err != nil || resHeader == nil || resHeader.Header == nil {
+		e.logger.Debug("header not found, logs block time left empty", "number", res.Height, "error", err)
+	} else {
+		blockTime = backend.SafeBlockTime(resHeader.Header.Time.Unix())
+	}
 	height, err := ethermint.SafeUint64(resBlockResult.Height)
 	if err != nil {
 		return nil, err
@@ -489,6 +497,7 @@ func (e *PublicAPI) GetTransactionLogs(txHash common.Hash) ([]*ethtypes.Log, err
 		resBlockResult.TxsResults[res.TxIndex].Events,
 		int(res.MsgIndex),
 		height,
+		blockTime,
 	)
 	if err != nil {
 		e.logger.Debug("failed to parse tx logs", "error", err.Error())

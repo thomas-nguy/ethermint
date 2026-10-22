@@ -18,6 +18,7 @@ package backend
 import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	rpctypes "github.com/evmos/ethermint/rpc/types"
 	"github.com/pkg/errors"
 )
 
@@ -30,7 +31,13 @@ func (b *Backend) GetLogs(hash common.Hash) ([][]*ethtypes.Log, error) {
 	if resBlock == nil {
 		return nil, errors.Errorf("block not found for hash %s", hash)
 	}
-	return b.GetLogsByHeight(&resBlock.Block.Height)
+	// NOTE: we query the state in case the tx result logs are not persisted after an upgrade.
+	blockRes, err := b.TendermintBlockResultByNumber(&resBlock.Block.Height)
+	if err != nil {
+		return nil, err
+	}
+
+	return GetLogsFromBlockResults(blockRes, SafeBlockTime(resBlock.Block.Time.Unix()))
 }
 
 // GetLogsByHeight returns all the logs from all the ethereum transactions in a block.
@@ -40,8 +47,16 @@ func (b *Backend) GetLogsByHeight(height *int64) ([][]*ethtypes.Log, error) {
 	if err != nil {
 		return nil, err
 	}
+	// height could be nil (latest), so fetch the block at the height of the results.
+	resBlock, err := b.TendermintBlockByNumber(rpctypes.BlockNumber(blockRes.Height))
+	if err != nil {
+		return nil, err
+	}
+	if resBlock == nil || resBlock.Block == nil {
+		return nil, errors.Errorf("block not found for height %d", blockRes.Height)
+	}
 
-	return GetLogsFromBlockResults(blockRes)
+	return GetLogsFromBlockResults(blockRes, SafeBlockTime(resBlock.Block.Time.Unix()))
 }
 
 // BloomStatus returns the BloomBitsBlocks and the number of processed sections maintained

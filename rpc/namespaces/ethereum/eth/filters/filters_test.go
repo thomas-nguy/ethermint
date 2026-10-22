@@ -23,6 +23,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// stubBlockTime is the time of every block returned by the stub backends.
+var stubBlockTime = time.Unix(1700000000, 0)
+
 // stubBackend satisfies the Backend interface with a fixed chain head.
 type stubBackend struct {
 	head int64
@@ -37,6 +40,9 @@ func (s *stubBackend) GetBlockByNumber(_ types.BlockNumber, _ bool) (map[string]
 func (s *stubBackend) HeaderByHash(_ common.Hash) (*ethtypes.Header, error) { return nil, nil }
 func (s *stubBackend) TendermintBlockByHash(_ common.Hash) (*coretypes.ResultBlock, error) {
 	return nil, nil
+}
+func (s *stubBackend) TendermintHeaderByNumber(_ types.BlockNumber) (*coretypes.ResultHeader, error) {
+	return &coretypes.ResultHeader{Header: &cmttypes.Header{Time: stubBlockTime}}, nil
 }
 func (s *stubBackend) TendermintBlockResultByNumber(_ *int64) (*coretypes.ResultBlockResults, error) {
 	return &coretypes.ResultBlockResults{}, nil
@@ -182,7 +188,7 @@ type blockHashFoundBackend struct {
 func (b *blockHashFoundBackend) TendermintBlockByHash(hash common.Hash) (*coretypes.ResultBlock, error) {
 	if hash == b.blockHash {
 		return &coretypes.ResultBlock{
-			Block: &cmttypes.Block{Header: cmttypes.Header{Height: 10}},
+			Block: &cmttypes.Block{Header: cmttypes.Header{Height: 10, Time: stubBlockTime}},
 		}, nil
 	}
 	return nil, nil
@@ -283,9 +289,28 @@ func TestGetLogs_BlockHashFound(t *testing.T) {
 			for _, l := range logs {
 				require.Equal(t, filterHash, l.BlockHash,
 					"every log must carry the block hash used in the filter")
+				require.Equal(t, uint64(stubBlockTime.Unix()), l.BlockTimestamp)
 			}
 		})
 	}
+}
+
+func TestGetLogs_BlockRangeFillsBlockTimestamp(t *testing.T) {
+	const height = int64(10)
+	logAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
+	api := &PublicFilterAPI{
+		logger: logv2.NewNopLogger(),
+		backend: &blockHashFoundBackend{
+			stubBackend: stubBackend{head: height},
+			blockRes:    buildBlockResultsWithLog(t, height, logAddr),
+		},
+	}
+
+	crit := gethfilters.FilterCriteria{FromBlock: big.NewInt(height), ToBlock: big.NewInt(height)}
+	logs, err := api.GetLogs(context.Background(), crit)
+	require.NoError(t, err)
+	require.Len(t, logs, 1)
+	require.Equal(t, uint64(stubBlockTime.Unix()), logs[0].BlockTimestamp)
 }
 
 func testAddresses(n int) []common.Address {

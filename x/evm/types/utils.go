@@ -76,7 +76,7 @@ func DecodeTxResponses(in []byte) ([]*MsgEthereumTxResponse, error) {
 	return responses, nil
 }
 
-func logsFromTxResponse(dst []*ethtypes.Log, rsp *MsgEthereumTxResponse, blockNumber uint64) []*ethtypes.Log {
+func logsFromTxResponse(dst []*ethtypes.Log, rsp *MsgEthereumTxResponse, blockNumber, blockTime uint64) []*ethtypes.Log {
 	if dst == nil {
 		dst = make([]*ethtypes.Log, 0, len(rsp.Logs))
 	}
@@ -87,6 +87,7 @@ func logsFromTxResponse(dst []*ethtypes.Log, rsp *MsgEthereumTxResponse, blockNu
 		l := log.ToEthereum()
 		l.TxHash = txHash
 		l.BlockNumber = blockNumber
+		l.BlockTimestamp = blockTime
 		if len(rsp.BlockHash) > 0 {
 			l.BlockHash = common.BytesToHash(rsp.BlockHash)
 		}
@@ -96,19 +97,28 @@ func logsFromTxResponse(dst []*ethtypes.Log, rsp *MsgEthereumTxResponse, blockNu
 }
 
 // DecodeMsgLogsFromEvents decodes a protobuf-encoded byte slice into ethereum logs, for a single message.
-func DecodeMsgLogsFromEvents(in []byte, events []abci.Event, msgIndex int, blockNumber uint64) ([]*ethtypes.Log, error) {
+// blockTime is the unix timestamp of the block containing the tx, it's not persisted with the logs.
+func DecodeMsgLogsFromEvents(in []byte, events []abci.Event, msgIndex int, blockNumber, blockTime uint64) ([]*ethtypes.Log, error) {
 	txResponses, err := DecodeTxResponses(in)
 	if err != nil {
 		return nil, err
 	}
 	var logs []*ethtypes.Log
 	if msgIndex < len(txResponses) {
-		logs = logsFromTxResponse(nil, txResponses[msgIndex], blockNumber)
+		logs = logsFromTxResponse(nil, txResponses[msgIndex], blockNumber, blockTime)
 	}
 	if len(logs) == 0 {
 		logs, err = TxLogsFromEvents(events, msgIndex)
+		SetLogsBlockTimestamp(logs, blockTime)
 	}
 	return logs, err
+}
+
+// SetLogsBlockTimestamp fills the block timestamp of the logs.
+func SetLogsBlockTimestamp(logs []*ethtypes.Log, blockTime uint64) {
+	for _, l := range logs {
+		l.BlockTimestamp = blockTime
+	}
 }
 
 // TxLogsFromEvents parses ethereum logs from cosmos events for specific msg index
@@ -148,14 +158,15 @@ func ParseTxLogsFromEvent(event abci.Event) ([]*ethtypes.Log, error) {
 }
 
 // DecodeTxLogsFromEvents decodes a protobuf-encoded byte slice into ethereum logs
-func DecodeTxLogsFromEvents(in []byte, events []abci.Event, blockNumber uint64) ([]*ethtypes.Log, error) {
+// blockTime is the unix timestamp of the block containing the tx, it's not persisted with the logs.
+func DecodeTxLogsFromEvents(in []byte, events []abci.Event, blockNumber, blockTime uint64) ([]*ethtypes.Log, error) {
 	txResponses, err := DecodeTxResponses(in)
 	if err != nil {
 		return nil, err
 	}
 	var logs []*ethtypes.Log
 	for _, response := range txResponses {
-		logs = logsFromTxResponse(logs, response, blockNumber)
+		logs = logsFromTxResponse(logs, response, blockNumber, blockTime)
 	}
 	if len(logs) == 0 {
 		for _, event := range events {
@@ -166,6 +177,7 @@ func DecodeTxLogsFromEvents(in []byte, events []abci.Event, blockNumber uint64) 
 			if err != nil {
 				return nil, err
 			}
+			SetLogsBlockTimestamp(txLogs, blockTime)
 			logs = append(logs, txLogs...)
 		}
 	}

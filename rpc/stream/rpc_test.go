@@ -16,6 +16,102 @@ import (
 	proto "google.golang.org/protobuf/proto"
 )
 
+func TestBlockTimeTracker(t *testing.T) {
+	newLogs := func(n int) []*ethtypes.Log {
+		logs := make([]*ethtypes.Log, n)
+		for i := range logs {
+			logs[i] = &ethtypes.Log{}
+		}
+		return logs
+	}
+	requireTimestamps := func(t *testing.T, logs []*ethtypes.Log, blockTime uint64) {
+		t.Helper()
+		for _, l := range logs {
+			require.Equal(t, blockTime, l.BlockTimestamp)
+		}
+	}
+
+	t.Run("logs after block are timestamped immediately", func(t *testing.T) {
+		tracker := newBlockTimeTracker()
+		require.Empty(t, tracker.addBlock(10, 100))
+		ready := tracker.addLogs(10, newLogs(2))
+		require.Len(t, ready, 2)
+		requireTimestamps(t, ready, 100)
+	})
+
+	t.Run("logs before block are held until the block arrives", func(t *testing.T) {
+		tracker := newBlockTimeTracker()
+		require.Empty(t, tracker.addLogs(10, newLogs(2)))
+		require.Empty(t, tracker.addLogs(10, newLogs(1)))
+		ready := tracker.addBlock(10, 100)
+		require.Len(t, ready, 3)
+		requireTimestamps(t, ready, 100)
+		require.Empty(t, tracker.pending)
+	})
+
+	t.Run("logs of a missed block are released by a later block", func(t *testing.T) {
+		tracker := newBlockTimeTracker()
+		require.Empty(t, tracker.addLogs(10, newLogs(1)))
+		require.Empty(t, tracker.addLogs(12, newLogs(1)))
+		ready := tracker.addBlock(11, 110)
+		require.Len(t, ready, 1)
+		requireTimestamps(t, ready, 0)
+		ready = tracker.addBlock(12, 120)
+		require.Len(t, ready, 1)
+		requireTimestamps(t, ready, 120)
+	})
+
+	t.Run("pending logs are released in block order", func(t *testing.T) {
+		tracker := newBlockTimeTracker()
+		for h := uint64(15); h >= 10; h-- {
+			tracker.addLogs(int64(h), []*ethtypes.Log{{BlockNumber: h}})
+		}
+		ready := tracker.addBlock(13, 130)
+		require.Len(t, ready, 4)
+		for i, l := range ready {
+			require.Equal(t, uint64(10+i), l.BlockNumber)
+		}
+		requireTimestamps(t, ready[3:], 130)
+
+		ready = tracker.flush()
+		require.Len(t, ready, 2)
+		require.Equal(t, uint64(14), ready[0].BlockNumber)
+		require.Equal(t, uint64(15), ready[1].BlockNumber)
+	})
+
+	t.Run("logs of an unknown past block are not held back", func(t *testing.T) {
+		tracker := newBlockTimeTracker()
+		for h := int64(1); h <= blockTimeRetention+10; h++ {
+			tracker.addBlock(h, uint64(h))
+		}
+		// pruned block time
+		ready := tracker.addLogs(1, newLogs(1))
+		require.Len(t, ready, 1)
+		requireTimestamps(t, ready, 0)
+		// retained block time
+		ready = tracker.addLogs(blockTimeRetention, newLogs(1))
+		require.Len(t, ready, 1)
+		requireTimestamps(t, ready, blockTimeRetention)
+		require.Empty(t, tracker.pending)
+	})
+
+	t.Run("old block times are pruned", func(t *testing.T) {
+		tracker := newBlockTimeTracker()
+		for h := int64(1); h <= 2*blockTimeRetention; h++ {
+			tracker.addBlock(h, uint64(h))
+		}
+		require.Len(t, tracker.times, blockTimeRetention)
+	})
+
+	t.Run("flush releases all pending logs", func(t *testing.T) {
+		tracker := newBlockTimeTracker()
+		tracker.addLogs(10, newLogs(1))
+		tracker.addLogs(11, newLogs(2))
+		require.Len(t, tracker.flush(), 3)
+		require.Empty(t, tracker.pending)
+	})
+}
+
 func TestEvmTxHashFromEventData(t *testing.T) {
 	t.Run("empty block returns EmptyRootHash", func(t *testing.T) {
 		data := tmtypes.EventDataNewBlock{

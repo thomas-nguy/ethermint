@@ -108,7 +108,7 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 		msg,
 		common.BytesToHash(block.Block.Hash()),
 		height,
-		safeBlockTime(block.Block.Time.Unix()),
+		SafeBlockTime(block.Block.Time.Unix()),
 		index,
 		baseFee,
 		b.chainID,
@@ -459,6 +459,7 @@ func (b *Backend) buildReceiptDirect(
 		blockResults.TxsResults[res.TxIndex].Events,
 		int(res.MsgIndex),
 		height,
+		SafeBlockTime(block.Block.Time.Unix()),
 	)
 	if err != nil {
 		b.logger.Debug("failed to parse logs", "hash", hash, "error", err.Error())
@@ -591,11 +592,13 @@ func (b *Backend) buildRawReceipt(
 	if err != nil {
 		return nil, err
 	}
+	// block time is left 0 as it's not part of the consensus encoding
 	logs, err := evmtypes.DecodeMsgLogsFromEvents(
 		blockResults.TxsResults[res.TxIndex].Data,
 		blockResults.TxsResults[res.TxIndex].Events,
 		int(res.MsgIndex),
 		height,
+		0,
 	)
 	if err != nil {
 		b.logger.Warn("failed to parse logs", "hash", ethMsg.Hash(), "error", err.Error())
@@ -798,7 +801,7 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *tmrpctypes.ResultBlock, i
 		msg,
 		common.BytesToHash(block.Block.Hash()),
 		height,
-		safeBlockTime(block.Block.Time.Unix()),
+		SafeBlockTime(block.Block.Time.Unix()),
 		uint64(idx),
 		baseFee,
 		b.chainID,

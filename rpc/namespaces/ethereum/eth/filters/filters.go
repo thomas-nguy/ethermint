@@ -121,7 +121,7 @@ func (f *Filter) Logs(ctx context.Context, logLimit int, blockLimit int64) ([]*e
 			return nil, err
 		}
 
-		logs, err := f.blockLogs(blockRes, bloom)
+		logs, err := f.blockLogs(blockRes, bloom, backend.SafeBlockTime(resBlock.Block.Time.Unix()))
 		if err != nil || len(logs) == 0 {
 			return logs, err
 		}
@@ -195,7 +195,20 @@ func (f *Filter) Logs(ctx context.Context, logLimit int, blockLimit int64) ([]*e
 			return logs, err
 		}
 
-		filtered, err := f.blockLogs(blockRes, bloom)
+		if !bloomMatches(bloom, f.bloomFilters) {
+			continue
+		}
+
+		// block results don't carry the block time, only fetch the header when the block may contain matching logs
+		resHeader, err := f.backend.TendermintHeaderByNumber(types.BlockNumber(height))
+		if err != nil {
+			return logs, errors.Wrapf(err, "failed to fetch header for height %d", height)
+		}
+		if resHeader == nil || resHeader.Header == nil {
+			return logs, fmt.Errorf("header not found for height %d", height)
+		}
+
+		filtered, err := f.blockLogs(blockRes, bloom, backend.SafeBlockTime(resHeader.Header.Time.Unix()))
 		if err != nil {
 			return logs, errors.Wrapf(err, "failed to fetch block by number %d", height)
 		}
@@ -210,12 +223,12 @@ func (f *Filter) Logs(ctx context.Context, logLimit int, blockLimit int64) ([]*e
 }
 
 // blockLogs returns the logs matching the filter criteria within a single block.
-func (f *Filter) blockLogs(blockRes *tmrpctypes.ResultBlockResults, bloom ethtypes.Bloom) ([]*ethtypes.Log, error) {
+func (f *Filter) blockLogs(blockRes *tmrpctypes.ResultBlockResults, bloom ethtypes.Bloom, blockTime uint64) ([]*ethtypes.Log, error) {
 	if !bloomMatches(bloom, f.bloomFilters) {
 		return []*ethtypes.Log{}, nil
 	}
 
-	logsList, err := backend.GetLogsFromBlockResults(blockRes)
+	logsList, err := backend.GetLogsFromBlockResults(blockRes, blockTime)
 	if err != nil {
 		return []*ethtypes.Log{}, errors.Wrapf(err, "failed to fetch logs block number %d", blockRes.Height)
 	}
