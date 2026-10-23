@@ -23,6 +23,7 @@ import (
 
 	"github.com/evmos/ethermint/rpc/backend"
 	"github.com/evmos/ethermint/rpc/types"
+	ethermint "github.com/evmos/ethermint/types"
 	evmtypes "github.com/evmos/ethermint/x/evm/types"
 
 	"cosmossdk.io/log/v2"
@@ -34,6 +35,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/filters"
 )
+
+// _blockTimesWindow is the most block headers the node returns per query.
+const _blockTimesWindow = 20
 
 // BloomIV represents the bit indexes and value inside the bloom filter that belong
 // to some key.
@@ -122,10 +126,11 @@ func (f *Filter) Logs(ctx context.Context, logLimit int, blockLimit int64) ([]*e
 			return nil, err
 		}
 
-		logs, err := f.blockLogs(blockRes, bloom, backend.SafeBlockTime(resBlock.Block.Time.Unix()))
+		logs, err := f.blockLogs(blockRes, bloom)
 		if err != nil || len(logs) == 0 {
 			return logs, err
 		}
+		evmtypes.SetLogsBlockTimestamp(logs, ethermint.SafeBlockTime(resBlock.Block.Time.Unix()))
 		blockHash := *f.criteria.BlockHash
 		for _, l := range logs {
 			l.BlockHash = blockHash
@@ -179,6 +184,7 @@ func (f *Filter) Logs(ctx context.Context, logLimit int, blockLimit int64) ([]*e
 	from := f.criteria.FromBlock.Int64()
 	to := f.criteria.ToBlock.Int64()
 	logs := []*ethtypes.Log{}
+	var blockTimes map[int64]uint64
 
 	for height := from; height <= to; height++ {
 		if err := ctx.Err(); err != nil {
@@ -196,7 +202,7 @@ func (f *Filter) Logs(ctx context.Context, logLimit int, blockLimit int64) ([]*e
 			return logs, err
 		}
 
-		filtered, err := f.blockLogs(blockRes, bloom, 0)
+		filtered, err := f.blockLogs(blockRes, bloom)
 		if err != nil {
 			return logs, errors.Wrapf(err, "failed to fetch block by number %d", height)
 		}
@@ -204,31 +210,29 @@ func (f *Filter) Logs(ctx context.Context, logLimit int, blockLimit int64) ([]*e
 			continue
 		}
 
-		// block results don't carry the block time, only fetch the header when the block has matching logs.
-		// the header is only needed for the logs' block time, don't fail the logs without it
-		resHeader, err := f.backend.TendermintHeaderByNumber(types.BlockNumber(height))
-		if err != nil || resHeader == nil || resHeader.Header == nil {
-			f.logger.Debug("header not found, logs block time left empty", "height", height, "error", err)
-		} else {
-			evmtypes.SetLogsBlockTimestamp(filtered, backend.SafeBlockTime(resHeader.Header.Time.Unix()))
-		}
-
 		// check logs limit
 		if len(logs)+len(filtered) > logLimit {
 			return logs, fmt.Errorf("query returned more than %d results", logLimit)
 		}
+
+		blockTime, ok := blockTimes[height]
+		if !ok {
+			blockTimes = f.backend.BlockTimesByRange(height, min(height+_blockTimesWindow-1, to))
+			blockTime = blockTimes[height]
+		}
+		evmtypes.SetLogsBlockTimestamp(filtered, blockTime)
 		logs = append(logs, filtered...)
 	}
 	return logs, nil
 }
 
 // blockLogs returns the logs matching the filter criteria within a single block.
-func (f *Filter) blockLogs(blockRes *tmrpctypes.ResultBlockResults, bloom ethtypes.Bloom, blockTime uint64) ([]*ethtypes.Log, error) {
+func (f *Filter) blockLogs(blockRes *tmrpctypes.ResultBlockResults, bloom ethtypes.Bloom) ([]*ethtypes.Log, error) {
 	if !bloomMatches(bloom, f.bloomFilters) {
 		return []*ethtypes.Log{}, nil
 	}
 
-	logsList, err := backend.GetLogsFromBlockResults(blockRes, blockTime)
+	logsList, err := backend.GetLogsFromBlockResults(blockRes)
 	if err != nil {
 		return []*ethtypes.Log{}, errors.Wrapf(err, "failed to fetch logs block number %d", blockRes.Height)
 	}

@@ -310,15 +310,15 @@ func computeGasUsed(blockRes *tmrpctypes.ResultBlockResults) (uint64, error) {
 	return gasUsed, nil
 }
 
-// GetLogsFromBlockResults returns the list of event logs from the tendermint block result response,
-func GetLogsFromBlockResults(blockRes *tmrpctypes.ResultBlockResults, blockTime uint64) ([][]*ethtypes.Log, error) {
+// GetLogsFromBlockResults returns the list of event logs from the tendermint block result response
+func GetLogsFromBlockResults(blockRes *tmrpctypes.ResultBlockResults) ([][]*ethtypes.Log, error) {
 	height, err := ethermint.SafeUint64(blockRes.Height)
 	if err != nil {
 		return nil, err
 	}
 	blockLogs := [][]*ethtypes.Log{}
 	for _, txResult := range blockRes.TxsResults {
-		logs, err := evmtypes.DecodeTxLogsFromEvents(txResult.Data, txResult.Events, height, blockTime)
+		logs, err := evmtypes.DecodeTxLogsFromEvents(txResult.Data, txResult.Events, height)
 		if err != nil {
 			return nil, err
 		}
@@ -355,13 +355,4 @@ func (b *Backend) getValidatorAccount(header *cmttypes.Header) (sdk.AccAddress, 
 		return nil, fmt.Errorf("failed to get validator account %w", err)
 	}
 	return sdk.AccAddressFromBech32(res.AccountAddress)
-}
-
-// SafeBlockTime converts a Unix int64 timestamp to uint64, returning 0 for
-// zero or negative values to prevent uint64 wrap-around.
-func SafeBlockTime(unixSec int64) uint64 {
-	if unixSec <= 0 {
-		return 0
-	}
-	return uint64(unixSec) //#nosec G115 -- guarded above
 }

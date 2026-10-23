@@ -28,7 +28,8 @@ var stubBlockTime = time.Unix(1700000000, 0)
 
 // stubBackend satisfies the Backend interface with a fixed chain head.
 type stubBackend struct {
-	head int64
+	head              int64
+	blockTimesQueries int
 }
 
 func (s *stubBackend) HeaderByNumber(_ types.BlockNumber) (*ethtypes.Header, error) {
@@ -41,8 +42,13 @@ func (s *stubBackend) HeaderByHash(_ common.Hash) (*ethtypes.Header, error) { re
 func (s *stubBackend) TendermintBlockByHash(_ common.Hash) (*coretypes.ResultBlock, error) {
 	return nil, nil
 }
-func (s *stubBackend) TendermintHeaderByNumber(_ types.BlockNumber) (*coretypes.ResultHeader, error) {
-	return &coretypes.ResultHeader{Header: &cmttypes.Header{Time: stubBlockTime}}, nil
+func (s *stubBackend) BlockTimesByRange(minHeight, maxHeight int64) map[int64]uint64 {
+	s.blockTimesQueries++
+	times := make(map[int64]uint64)
+	for h := minHeight; h <= min(maxHeight, minHeight+_blockTimesWindow-1); h++ {
+		times[h] = uint64(stubBlockTime.Unix())
+	}
+	return times
 }
 func (s *stubBackend) TendermintBlockResultByNumber(_ *int64) (*coretypes.ResultBlockResults, error) {
 	return &coretypes.ResultBlockResults{}, nil
@@ -296,21 +302,26 @@ func TestGetLogs_BlockHashFound(t *testing.T) {
 }
 
 func TestGetLogs_BlockRangeFillsBlockTimestamp(t *testing.T) {
-	const height = int64(10)
+	// every block of the range has a matching log
+	const from, to = int64(1), int64(2*_blockTimesWindow + 5)
 	logAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
+	backend := &blockHashFoundBackend{
+		stubBackend: stubBackend{head: to},
+		blockRes:    buildBlockResultsWithLog(t, to, logAddr),
+	}
 	api := &PublicFilterAPI{
-		logger: logv2.NewNopLogger(),
-		backend: &blockHashFoundBackend{
-			stubBackend: stubBackend{head: height},
-			blockRes:    buildBlockResultsWithLog(t, height, logAddr),
-		},
+		logger:  logv2.NewNopLogger(),
+		backend: backend,
 	}
 
-	crit := gethfilters.FilterCriteria{FromBlock: big.NewInt(height), ToBlock: big.NewInt(height)}
+	crit := gethfilters.FilterCriteria{FromBlock: big.NewInt(from), ToBlock: big.NewInt(to)}
 	logs, err := api.GetLogs(context.Background(), crit)
 	require.NoError(t, err)
-	require.Len(t, logs, 1)
-	require.Equal(t, uint64(stubBlockTime.Unix()), logs[0].BlockTimestamp)
+	require.Len(t, logs, int(to-from+1))
+	for _, l := range logs {
+		require.Equal(t, uint64(stubBlockTime.Unix()), l.BlockTimestamp)
+	}
+	require.Equal(t, 3, backend.blockTimesQueries, "the block headers are fetched by windows")
 }
 
 func testAddresses(n int) []common.Address {

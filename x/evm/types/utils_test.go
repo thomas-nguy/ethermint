@@ -50,7 +50,7 @@ func TestEvmDataEncoding(t *testing.T) {
 	require.Equal(t, ret, rsps[0].Ret)
 }
 
-func TestDecodeLogsBlockTimestamp(t *testing.T) {
+func TestSetLogsBlockTimestamp(t *testing.T) {
 	const (
 		blockNumber = uint64(17)
 		blockTime   = uint64(1700000000)
@@ -82,16 +82,16 @@ func TestDecodeLogsBlockTimestamp(t *testing.T) {
 		decode func() ([]*ethtypes.Log, error)
 	}{
 		{"tx logs from tx responses", func() ([]*ethtypes.Log, error) {
-			return evmtypes.DecodeTxLogsFromEvents(txDataBz, nil, blockNumber, blockTime)
+			return evmtypes.DecodeTxLogsFromEvents(txDataBz, nil, blockNumber)
 		}},
 		{"tx logs from events", func() ([]*ethtypes.Log, error) {
-			return evmtypes.DecodeTxLogsFromEvents(nil, events, blockNumber, blockTime)
+			return evmtypes.DecodeTxLogsFromEvents(nil, events, blockNumber)
 		}},
 		{"msg logs from tx responses", func() ([]*ethtypes.Log, error) {
-			return evmtypes.DecodeMsgLogsFromEvents(txDataBz, nil, 0, blockNumber, blockTime)
+			return evmtypes.DecodeMsgLogsFromEvents(txDataBz, nil, 0, blockNumber)
 		}},
 		{"msg logs from events", func() ([]*ethtypes.Log, error) {
-			return evmtypes.DecodeMsgLogsFromEvents(nil, events, 0, blockNumber, blockTime)
+			return evmtypes.DecodeMsgLogsFromEvents(nil, events, 0, blockNumber)
 		}},
 	}
 	for _, tc := range testCases {
@@ -99,6 +99,7 @@ func TestDecodeLogsBlockTimestamp(t *testing.T) {
 			decoded, err := tc.decode()
 			require.NoError(t, err)
 			require.Len(t, decoded, len(logs))
+			evmtypes.SetLogsBlockTimestamp(decoded, blockTime)
 			for _, l := range decoded {
 				require.Equal(t, blockTime, l.BlockTimestamp)
 			}

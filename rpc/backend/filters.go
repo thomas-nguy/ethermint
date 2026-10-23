@@ -16,9 +16,11 @@
 package backend
 
 import (
+	tmrpcclient "github.com/cometbft/cometbft/rpc/client"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	rpctypes "github.com/evmos/ethermint/rpc/types"
+	ethermint "github.com/evmos/ethermint/types"
 	"github.com/pkg/errors"
 )
 
@@ -31,13 +33,7 @@ func (b *Backend) GetLogs(hash common.Hash) ([][]*ethtypes.Log, error) {
 	if resBlock == nil {
 		return nil, errors.Errorf("block not found for hash %s", hash)
 	}
-	// NOTE: we query the state in case the tx result logs are not persisted after an upgrade.
-	blockRes, err := b.TendermintBlockResultByNumber(&resBlock.Block.Height)
-	if err != nil {
-		return nil, err
-	}
-
-	return GetLogsFromBlockResults(blockRes, SafeBlockTime(resBlock.Block.Time.Unix()))
+	return b.GetLogsByHeight(&resBlock.Block.Height)
 }
 
 // GetLogsByHeight returns all the logs from all the ethereum transactions in a block.
@@ -47,15 +43,50 @@ func (b *Backend) GetLogsByHeight(height *int64) ([][]*ethtypes.Log, error) {
 	if err != nil {
 		return nil, err
 	}
-	// height could be nil (latest), so fetch the header at the height of the results.
-	// the header is only needed for the logs' block time, don't fail the logs without it
-	var blockTime uint64
-	resHeader, err := b.TendermintHeaderByNumber(rpctypes.BlockNumber(blockRes.Height))
-	if err == nil && resHeader != nil && resHeader.Header != nil {
-		blockTime = SafeBlockTime(resHeader.Header.Time.Unix())
-	}
 
-	return GetLogsFromBlockResults(blockRes, blockTime)
+	return GetLogsFromBlockResults(blockRes)
+}
+
+// BlockTimeByHeight returns the unix time of the block at height, or 0 if it's unknown.
+// Non-positive heights return 0, as they would resolve to the latest block.
+func (b *Backend) BlockTimeByHeight(height int64) uint64 {
+	if height <= 0 {
+		return 0
+	}
+	resHeader, err := b.TendermintHeaderByNumber(rpctypes.BlockNumber(height))
+	if err != nil || resHeader == nil || resHeader.Header == nil {
+		b.logger.Debug("failed to fetch block header, block timestamp left empty", "height", height, "error", err)
+		return 0
+	}
+	return ethermint.SafeBlockTime(resHeader.Header.Time.Unix())
+}
+
+// BlockTimesByRange returns the unix time of the blocks in [minHeight, maxHeight] by height, in a
+// single query. The node returns at most 20 headers per query, the other heights are left out.
+func (b *Backend) BlockTimesByRange(minHeight, maxHeight int64) map[int64]uint64 {
+	minHeight = max(minHeight, 1)
+	if minHeight > maxHeight {
+		return nil
+	}
+	hc, ok := b.clientCtx.Client.(tmrpcclient.HistoryClient)
+	if !ok {
+		b.logger.Debug("invalid rpc client, block timestamps left empty")
+		return nil
+	}
+	res, err := hc.BlockchainInfo(b.ctx, minHeight, maxHeight)
+	if err != nil || res == nil {
+		b.logger.Debug("failed to fetch block headers, block timestamps left empty",
+			"min", minHeight, "max", maxHeight, "error", err)
+		return nil
+	}
+	times := make(map[int64]uint64, len(res.BlockMetas))
+	for _, meta := range res.BlockMetas {
+		if meta == nil {
+			continue
+		}
+		times[meta.Header.Height] = ethermint.SafeBlockTime(meta.Header.Time.Unix())
+	}
+	return times
 }
 
 // BloomStatus returns the BloomBitsBlocks and the number of processed sections maintained

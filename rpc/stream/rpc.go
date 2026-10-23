@@ -3,11 +3,10 @@ package stream
 import (
 	"context"
 	"fmt"
-	"slices"
 	"sync"
 
 	"cosmossdk.io/log/v2"
-	cmtquery "github.com/cometbft/cometbft/libs/pubsub/query"
+	abci "github.com/cometbft/cometbft/abci/types"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
@@ -32,15 +31,7 @@ const (
 	logStreamCapacity       = 2048 * 32
 )
 
-var (
-	evmEvents = cmtquery.MustCompile(fmt.Sprintf("%s='%s' AND %s.%s='%s'",
-		tmtypes.EventTypeKey,
-		tmtypes.EventTx,
-		sdk.EventTypeMessage,
-		sdk.AttributeKeyModule, evmtypes.ModuleName)).String()
-	blockEvents  = tmtypes.QueryForEvent(tmtypes.EventNewBlock).String()
-	evmTxHashKey = fmt.Sprintf("%s.%s", evmtypes.TypeMsgEthereumTx, evmtypes.AttributeKeyEthereumTxHash)
-)
+var blockEvents = tmtypes.QueryForEvent(tmtypes.EventNewBlock).String()
 
 type RPCHeader struct {
 	EthHeader *ethtypes.Header
@@ -100,15 +91,7 @@ func (s *RPCStream) initSubscriptions() {
 		panic(err)
 	}
 
-	chLogs, err := s.evtClient.Subscribe(ctx, streamSubscriberName, evmEvents, subscribBufferSize)
-	if err != nil {
-		if err := s.evtClient.UnsubscribeAll(context.Background(), streamSubscriberName); err != nil {
-			s.logger.Error("failed to unsubscribe", "err", err)
-		}
-		panic(err)
-	}
-
-	go s.start(&s.wg, chBlocks, chLogs)
+	go s.start(&s.wg, chBlocks)
 }
 
 func (s *RPCStream) Close() error {
@@ -146,7 +129,6 @@ func (s *RPCStream) ListenPendingTx(hash common.Hash) {
 func (s *RPCStream) start(
 	wg *sync.WaitGroup,
 	chBlocks <-chan coretypes.ResultEvent,
-	chLogs <-chan coretypes.ResultEvent,
 ) {
 	wg.Add(1)
 	defer func() {
@@ -156,186 +138,84 @@ func (s *RPCStream) start(
 		}
 	}()
 
-	blockTimes := newBlockTimeTracker()
-	for {
-		select {
-		case ev, ok := <-chBlocks:
-			if !ok {
-				chBlocks = nil
-				// no more block times will come, release the logs waiting for them
-				s.logStream.Add(blockTimes.flush()...)
-				break
-			}
-
-			data, ok := ev.Data.(tmtypes.EventDataNewBlock)
-			if !ok {
-				s.logger.Error("event data type mismatch", "type", fmt.Sprintf("%T", ev.Data))
-				continue
-			}
-
-			blockTime, err := ethermint.SafeUint64(data.Block.Time.Unix())
-			if err != nil {
-				blockTime = 0
-			}
-			s.logStream.Add(blockTimes.addBlock(data.Block.Height, blockTime)...)
-
-			baseFee := types.BaseFeeFromEvents(data.ResultFinalizeBlock.Events)
-			res, err := s.validatorAccount(
-				types.ContextWithHeight(data.Block.Height),
-				&evmtypes.QueryValidatorAccountRequest{
-					ConsAddress: sdk.ConsAddress(data.Block.Header.ProposerAddress).String(),
-				},
-			)
-			if err != nil {
-				s.logger.Error("failed to get validator account", "err", err)
-				continue
-			}
-			validator, err := sdk.AccAddressFromBech32(res.AccountAddress)
-			if err != nil {
-				s.logger.Error("failed to convert validator account", "err", err)
-				continue
-			}
-			// TODO: fetch bloom from events
-			header := types.EthHeaderFromTendermint(data.Block.Header, ethtypes.Bloom{}, baseFee, validator)
-			txHash, err := evmTxHashFromEventData(data, s.txDecoder)
-			if err != nil {
-				// Drop rather than publish a wrong transactionsRoot; a gap in
-				// the stream is better than incorrect data cached by clients.
-				s.logger.Error("failed to compute transactionsRoot for newHeads, dropping header",
-					"height", data.Block.Height, "err", err)
-				continue
-			}
-			header.TxHash = txHash
-			s.headerStream.Add(RPCHeader{EthHeader: header, Hash: common.BytesToHash(data.Block.Header.Hash())})
-
-		case ev, ok := <-chLogs:
-			if !ok {
-				chLogs = nil
-				break
-			}
-
-			if _, ok := ev.Events[evmTxHashKey]; !ok {
-				// ignore transaction as it's not from the evm module
-				continue
-			}
-
-			// get transaction result data
-			dataTx, ok := ev.Data.(tmtypes.EventDataTx)
-			if !ok {
-				s.logger.Error("event data type mismatch", "type", fmt.Sprintf("%T", ev.Data))
-				continue
-			}
-			height, err := ethermint.SafeUint64(dataTx.Height)
-			if err != nil {
-				continue
-			}
-			// block time is filled by the block time tracker, as tx events don't carry it
-			txLogs, err := evmtypes.DecodeTxLogsFromEvents(dataTx.Result.Data, dataTx.Result.Events, height, 0)
-			if err != nil {
-				s.logger.Error("fail to decode evm tx response", "error", err.Error())
-				continue
-			}
-
-			s.logStream.Add(blockTimes.addLogs(dataTx.Height, txLogs)...)
+	for ev := range chBlocks {
+		data, ok := ev.Data.(tmtypes.EventDataNewBlock)
+		if !ok {
+			s.logger.Error("event data type mismatch", "type", fmt.Sprintf("%T", ev.Data))
+			continue
 		}
 
-		if chBlocks == nil && chLogs == nil {
-			break
+		// publish the header before the logs, the logs used to come from the tx events, published after it.
+		if header, err := s.blockHeader(data); err != nil {
+			s.logger.Error("failed to build newHeads header, dropping header", "height", data.Block.Height, "err", err)
+		} else {
+			s.headerStream.Add(header)
 		}
+		s.logStream.Add(s.blockLogs(data)...)
 	}
 }
 
-// blockTimeRetention is the number of recent block times kept to timestamp late tx events.
-const blockTimeRetention = 128
-
-// blockTimeTracker fills the block timestamp of the logs, the tx events don't carry the block time,
-// and they can be received before or after the new block event of the same height,
-// logs are held back until the block time of their height is known.
-//
-// Holding logs back normally adds no noticeable latency, as the new block event is published
-// together with the tx events. If the new block event of a height is missed, e.g. dropped by a
-// full subscription buffer, its logs are released without timestamp by the next block event,
-// so they are delayed until the next block.
-type blockTimeTracker struct {
-	times   map[int64]uint64
-	pending map[int64][]*ethtypes.Log
-	// latest is the highest block height seen
-	latest int64
-	// closed is set once no more block events will come, logs are not held back anymore
-	closed bool
+func (s *RPCStream) blockHeader(data tmtypes.EventDataNewBlock) (RPCHeader, error) {
+	baseFee := types.BaseFeeFromEvents(data.ResultFinalizeBlock.Events)
+	res, err := s.validatorAccount(
+		types.ContextWithHeight(data.Block.Height),
+		&evmtypes.QueryValidatorAccountRequest{
+			ConsAddress: sdk.ConsAddress(data.Block.Header.ProposerAddress).String(),
+		},
+	)
+	if err != nil {
+		return RPCHeader{}, fmt.Errorf("failed to get validator account: %w", err)
+	}
+	validator, err := sdk.AccAddressFromBech32(res.AccountAddress)
+	if err != nil {
+		return RPCHeader{}, fmt.Errorf("failed to convert validator account: %w", err)
+	}
+	// TODO: fetch bloom from events
+	header := types.EthHeaderFromTendermint(data.Block.Header, ethtypes.Bloom{}, baseFee, validator)
+	txHash, err := evmTxHashFromEventData(data, s.txDecoder)
+	if err != nil {
+		// Drop rather than publish a wrong transactionsRoot; a gap in
+		// the stream is better than incorrect data cached by clients.
+		return RPCHeader{}, fmt.Errorf("failed to compute transactionsRoot: %w", err)
+	}
+	header.TxHash = txHash
+	return RPCHeader{EthHeader: header, Hash: common.BytesToHash(data.Block.Header.Hash())}, nil
 }
 
-func newBlockTimeTracker() *blockTimeTracker {
-	return &blockTimeTracker{
-		times:   make(map[int64]uint64),
-		pending: make(map[int64][]*ethtypes.Log),
+func (s *RPCStream) blockLogs(data tmtypes.EventDataNewBlock) []*ethtypes.Log {
+	height, err := ethermint.SafeUint64(data.Block.Height)
+	if err != nil {
+		return nil
 	}
-}
-
-// addBlock records the block time and returns the pending logs that are ready to publish,
-// in block order.
-func (t *blockTimeTracker) addBlock(height int64, blockTime uint64) []*ethtypes.Log {
-	t.times[height] = blockTime
-	t.latest = max(t.latest, height)
-	for h := range t.times {
-		if h <= t.latest-blockTimeRetention {
-			delete(t.times, h)
-		}
-	}
-
-	heights := make([]int64, 0, len(t.pending))
-	for h := range t.pending {
-		// logs of heights above are still waiting for their block event, the block event of the
-		// heights below is missed, publish their logs without timestamp rather than holding them forever.
-		if h <= height {
-			heights = append(heights, h)
-		}
-	}
-	slices.Sort(heights)
-
-	var ready []*ethtypes.Log
-	for _, h := range heights {
-		logs := t.pending[h]
-		if h == height {
-			evmtypes.SetLogsBlockTimestamp(logs, blockTime)
-		}
-		ready = append(ready, logs...)
-		delete(t.pending, h)
-	}
-	return ready
-}
-
-// addLogs returns the logs if they can be published, otherwise holds them back until the block
-// time of their height is known.
-func (t *blockTimeTracker) addLogs(height int64, logs []*ethtypes.Log) []*ethtypes.Log {
-	if blockTime, ok := t.times[height]; ok {
-		evmtypes.SetLogsBlockTimestamp(logs, blockTime)
-		return logs
-	}
-	if height <= t.latest || t.closed {
-		// the block time is pruned, the block event is missed or the block events are closed,
-		// it won't be known anymore.
-		return logs
-	}
-	t.pending[height] = append(t.pending[height], logs...)
-	return nil
-}
-
-// flush returns all the pending logs, in block order, and stops holding back the logs added later.
-func (t *blockTimeTracker) flush() []*ethtypes.Log {
-	t.closed = true
-	heights := make([]int64, 0, len(t.pending))
-	for h := range t.pending {
-		heights = append(heights, h)
-	}
-	slices.Sort(heights)
-
 	var logs []*ethtypes.Log
-	for _, h := range heights {
-		logs = append(logs, t.pending[h]...)
-		delete(t.pending, h)
+	for _, txResult := range data.ResultFinalizeBlock.TxResults {
+		if txResult == nil || !isEvmTx(txResult.Events) {
+			// ignore transaction as it's not from the evm module
+			continue
+		}
+		txLogs, err := evmtypes.DecodeTxLogsFromEvents(txResult.Data, txResult.Events, height)
+		if err != nil {
+			s.logger.Error("fail to decode evm tx response", "error", err.Error())
+			continue
+		}
+		logs = append(logs, txLogs...)
 	}
+	evmtypes.SetLogsBlockTimestamp(logs, ethermint.SafeBlockTime(data.Block.Time.Unix()))
 	return logs
+}
+
+func isEvmTx(events []abci.Event) bool {
+	for _, event := range events {
+		if event.Type != evmtypes.TypeMsgEthereumTx {
+			continue
+		}
+		for _, attr := range event.Attributes {
+			if attr.Key == evmtypes.AttributeKeyEthereumTxHash {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func evmTxHashFromEventData(data tmtypes.EventDataNewBlock, txDecoder sdk.TxDecoder) (common.Hash, error) {
