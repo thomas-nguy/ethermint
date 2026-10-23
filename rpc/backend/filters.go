@@ -21,6 +21,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	rpctypes "github.com/evmos/ethermint/rpc/types"
 	ethermint "github.com/evmos/ethermint/types"
+	evmtypes "github.com/evmos/ethermint/x/evm/types"
 	"github.com/pkg/errors"
 )
 
@@ -33,7 +34,16 @@ func (b *Backend) GetLogs(hash common.Hash) ([][]*ethtypes.Log, error) {
 	if resBlock == nil {
 		return nil, errors.Errorf("block not found for hash %s", hash)
 	}
-	return b.GetLogsByHeight(&resBlock.Block.Height)
+	blockRes, err := b.TendermintBlockResultByNumber(&resBlock.Block.Height)
+	if err != nil {
+		return nil, err
+	}
+	logs, err := GetLogsFromBlockResults(blockRes)
+	if err != nil {
+		return nil, err
+	}
+	setBlockLogsTimestamp(logs, ethermint.SafeBlockTime(resBlock.Block.Time.Unix()))
+	return logs, nil
 }
 
 // GetLogsByHeight returns all the logs from all the ethereum transactions in a block.
@@ -44,7 +54,25 @@ func (b *Backend) GetLogsByHeight(height *int64) ([][]*ethtypes.Log, error) {
 		return nil, err
 	}
 
-	return GetLogsFromBlockResults(blockRes)
+	logs, err := GetLogsFromBlockResults(blockRes)
+	if err != nil {
+		return nil, err
+	}
+	// only fetch the header if there are logs to fill
+	for _, txLogs := range logs {
+		if len(txLogs) > 0 {
+			setBlockLogsTimestamp(logs, b.BlockTimeByHeight(blockRes.Height))
+			break
+		}
+	}
+	return logs, nil
+}
+
+// setBlockLogsTimestamp sets the block timestamp of the logs of all the txs of a block.
+func setBlockLogsTimestamp(logs [][]*ethtypes.Log, blockTime uint64) {
+	for _, txLogs := range logs {
+		evmtypes.SetLogsBlockTimestamp(txLogs, blockTime)
+	}
 }
 
 // BlockTimeByHeight returns the unix time of the block at height, or 0 if it's unknown.

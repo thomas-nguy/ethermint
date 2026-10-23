@@ -91,6 +91,58 @@ func (suite *BackendTestSuite) TestGetLogs() {
 	}
 }
 
+func (suite *BackendTestSuite) TestGetLogsBlockTimestamp() {
+	const height = int64(1)
+	blockTime := time.Unix(1700000000, 0)
+	block := &tmtypes.Block{Header: tmtypes.Header{Height: height, Time: blockTime}}
+	hash := common.BytesToHash(block.Hash())
+
+	suite.Run("GetLogs", func() {
+		suite.SetupTest()
+		client := suite.backend.clientCtx.Client.(*mocks.Client)
+		client.On("BlockByHash", ethrpc.ContextWithHeight(1), hash.Bytes()).
+			Return(&tmrpctypes.ResultBlock{Block: block}, nil)
+		_, err := RegisterBlockResultsWithEventLog(client, height)
+		suite.Require().NoError(err)
+
+		logs, err := suite.backend.GetLogs(hash)
+		suite.Require().NoError(err)
+		suite.Require().Len(logs, 1)
+		suite.Require().Len(logs[0], 1)
+		suite.Require().Equal(uint64(blockTime.Unix()), logs[0][0].BlockTimestamp)
+	})
+
+	suite.Run("GetLogsByHeight", func() {
+		suite.SetupTest()
+		client := suite.backend.clientCtx.Client.(*mocks.Client)
+		_, err := RegisterBlockResultsWithEventLog(client, height)
+		suite.Require().NoError(err)
+		client.On("Header", ethrpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
+			Return(&tmrpctypes.ResultHeader{Header: &block.Header}, nil)
+
+		h := height
+		logs, err := suite.backend.GetLogsByHeight(&h)
+		suite.Require().NoError(err)
+		suite.Require().Len(logs, 1)
+		suite.Require().Len(logs[0], 1)
+		suite.Require().Equal(uint64(blockTime.Unix()), logs[0][0].BlockTimestamp)
+	})
+
+	suite.Run("GetLogsByHeight without logs skips the header", func() {
+		suite.SetupTest()
+		client := suite.backend.clientCtx.Client.(*mocks.Client)
+		_, err := RegisterBlockResults(client, height)
+		suite.Require().NoError(err)
+
+		h := height
+		logs, err := suite.backend.GetLogsByHeight(&h)
+		suite.Require().NoError(err)
+		suite.Require().Len(logs, 1)
+		suite.Require().Empty(logs[0])
+		client.AssertNotCalled(suite.T(), "Header", mock.Anything, mock.Anything)
+	})
+}
+
 func (suite *BackendTestSuite) TestBlockTimeByHeight() {
 	blockTime := time.Unix(1700000000, 0)
 
