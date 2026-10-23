@@ -185,6 +185,7 @@ func (f *Filter) Logs(ctx context.Context, logLimit int, blockLimit int64) ([]*e
 	to := f.criteria.ToBlock.Int64()
 	logs := []*ethtypes.Log{}
 	var blockTimes map[int64]uint64
+	fetchedTo := from - 1
 
 	for height := from; height <= to; height++ {
 		if err := ctx.Err(); err != nil {
@@ -215,12 +216,12 @@ func (f *Filter) Logs(ctx context.Context, logLimit int, blockLimit int64) ([]*e
 			return logs, fmt.Errorf("query returned more than %d results", logLimit)
 		}
 
-		blockTime, ok := blockTimes[height]
-		if !ok {
-			blockTimes = f.backend.BlockTimesByRange(height, min(height+_blockTimesWindow-1, to))
-			blockTime = blockTimes[height]
+		// fetch the window once, even if it fails, so a failing query isn't retried for every height in it.
+		if height > fetchedTo {
+			fetchedTo = min(height+_blockTimesWindow-1, to)
+			blockTimes = f.backend.BlockTimesByRange(height, fetchedTo)
 		}
-		evmtypes.SetLogsBlockTimestamp(filtered, blockTime)
+		evmtypes.SetLogsBlockTimestamp(filtered, blockTimes[height])
 		logs = append(logs, filtered...)
 	}
 	return logs, nil

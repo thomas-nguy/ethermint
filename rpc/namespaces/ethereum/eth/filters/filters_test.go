@@ -30,6 +30,7 @@ var stubBlockTime = time.Unix(1700000000, 0)
 type stubBackend struct {
 	head              int64
 	blockTimesQueries int
+	blockTimesFail    bool
 }
 
 func (s *stubBackend) HeaderByNumber(_ types.BlockNumber) (*ethtypes.Header, error) {
@@ -44,6 +45,9 @@ func (s *stubBackend) TendermintBlockByHash(_ common.Hash) (*coretypes.ResultBlo
 }
 func (s *stubBackend) BlockTimesByRange(minHeight, maxHeight int64) map[int64]uint64 {
 	s.blockTimesQueries++
+	if s.blockTimesFail {
+		return nil
+	}
 	times := make(map[int64]uint64)
 	for h := minHeight; h <= min(maxHeight, minHeight+_blockTimesWindow-1); h++ {
 		times[h] = uint64(stubBlockTime.Unix())
@@ -322,6 +326,29 @@ func TestGetLogs_BlockRangeFillsBlockTimestamp(t *testing.T) {
 		require.Equal(t, uint64(stubBlockTime.Unix()), l.BlockTimestamp)
 	}
 	require.Equal(t, 3, backend.blockTimesQueries, "the block headers are fetched by windows")
+}
+
+func TestGetLogs_BlockRangeFailedBlockTimesNotRetried(t *testing.T) {
+	// every block of the range has a matching log
+	const from, to = int64(1), int64(2*_blockTimesWindow + 5)
+	logAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
+	backend := &blockHashFoundBackend{
+		stubBackend: stubBackend{head: to, blockTimesFail: true},
+		blockRes:    buildBlockResultsWithLog(t, to, logAddr),
+	}
+	api := &PublicFilterAPI{
+		logger:  logv2.NewNopLogger(),
+		backend: backend,
+	}
+
+	crit := gethfilters.FilterCriteria{FromBlock: big.NewInt(from), ToBlock: big.NewInt(to)}
+	logs, err := api.GetLogs(context.Background(), crit)
+	require.NoError(t, err)
+	require.Len(t, logs, int(to-from+1))
+	for _, l := range logs {
+		require.Zero(t, l.BlockTimestamp)
+	}
+	require.Equal(t, 3, backend.blockTimesQueries, "a failed window must not be queried again")
 }
 
 func testAddresses(n int) []common.Address {
