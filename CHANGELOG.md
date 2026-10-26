@@ -39,6 +39,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ### API Breaking
 
+* (rpc) [#1132](https://github.com/crypto-org-chain/ethermint/pull/1132) fix(rpc): add `BlockTimeByHeight` to the `backend.EVMBackend` interface and `BlockTimesByRange` to the `filters.Backend` interface, to fill the `blockTimestamp` of logs.
 * (rpc) [#1091](https://github.com/crypto-org-chain/ethermint/pull/1091) fix(rpc): return `net_peerCount` as a hex quantity (`hexutil.Uint`) instead of a JSON number.
 * (rpc) [#962](https://github.com/crypto-org-chain/ethermint/pull/962) fix(rpc): rename `AccessListResult.Accesslist` to `AccessList` and change `GasUsed` from `uint64` to `hexutil.Uint64` in `x/evm/types`; change `AccessList` and `GasUsed` from pointer to value types in `rpc/types.AccessListResult`.
 
